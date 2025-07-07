@@ -9,7 +9,7 @@ Jinja2==3.1.6
 MarkupSafe==3.0.2
 pyodbc==5.2.0
 python-dotenv==1.1.1
-pywin32==310
+# pywin32==310
 tzdata==2025.2
 tzlocal==5.3.1
 Werkzeug==3.1.3
