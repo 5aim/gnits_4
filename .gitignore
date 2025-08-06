@@ -3,14 +3,13 @@
 
 
 ### Custom ###
-# === Vissim, Visum Simulation File
-auto simulation/
 
 # === Python Library
 library_download/
 
 # === Tibero Data Insert Code
-tibero_insert.py
+tibero_insert_sql.py
+tibero_insert_csv.py
 
 
 

@@ -1,20 +1,71 @@
-sctwin0001
-sctwin0002
-sctwin0010_11
-sctwin0016_18
-sctwin0027_44_45
-sctwin0028_30_40_41_42_43
-sctwin0031_34
-sctwin0035_38
-sctwin0039_46_47
-sctwin0048
-sctwin0051
-sctwin0052
-sctwin0053
-sctwin0054
-sctwin0055
-sctwin0056
-sctwin0057
-sctwin0058
-sctwin0059
-analy_traffic_vol
+>>> URL 정보
+
+
+
+
+모니터링
+
+[ 모니터링 2 - 교통존간 통행정보 ] localhost:5101/monitoring/visum-zone-od
+
+[ 모니터링 3 - 분석지역별 교통흐름 통계정보 4K ] localhost:5101/monitoring/statistics-traffic-flow/node-result
+
+[ 모니터링 5 - 교차로별 통행정보 ] localhost:5101/monitoring/node-result
+
+신호운영
+
+[ 신호운영 1 - 도로축별 통계정보 ] localhost:5101/signal/vttm-result
+
+[ 신호운영 4 - 교차로별 효과지표 분석정보 - 접근로별 ] localhost:5101/signal/node-approach-result
+
+교통관리
+
+
+
+
+
+
+
+
+>>> 서버 실행 순서
+
+1. python version: 3.11.6 설치
+2. python 시스템 환경변수 path 설정
+3. C 드라이브 내 'Digital Twin Simulation Program' 폴더 생성 또는 git clone
+
+    C:\Digital Twin Simulation Program.
+    ├─ auto simulation
+    ├─ static
+    ├─ templates
+    ├─ .env
+    ├─ .gitignore
+    ├─ requirements.txt
+    ├─ url.txt
+    ├─ windows.py
+
+4. 해당 경로 내 python 가상환경 생성
+
+    (1) cmd 실행
+    (2) 해당 디렉터리 이동 명령어 'cd C:/Digital Twin Simulation Program' 실행
+    (3) python 가상환경 생성 명령어 'python -m venv venv' 또는 'python3 -m venv venv' 실행
+    
+        C:\Digital Twin Simulation Program.
+        ├─ auto simulation
+        ├─ static
+        ├─ templates
+        ├─ .env
+        ├─ .gitignore
+        ├─ requirements.txt
+        ├─ url.txt
+        ├─ windows.py
+        ├─ venv          <= 가상환경 생성
+
+5. python 가상환경 실행
+    해당 디렉터리에서 명령어 'cd venv/Scripts' 실행
+    'C:/Digital Twin Simulation Program/venv/Scripts' 이동 후 명령어 'activate' 실행
+    다시 명령어 'cd C:/Digital Twin Simulation Program' 실행 디렉터리로 이동.
+
+6. package 설치
+    명령어 'pip install -r requirements.txt' 실행
+
+7. 서버 실행
+    명령어 'python app.py' 실행

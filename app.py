@@ -1,8 +1,13 @@
+import datetime, pyodbc, os, subprocess, json, pathlib
+import pandas as pd
+import numpy as np
+
+from decimal import Decimal
+from collections import defaultdict
 from flask import Flask, request, jsonify, render_template, redirect, url_for, Response
 from flask_cors import CORS
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
-import datetime, pyodbc, os, subprocess, json
 from windows import set_dpi_awareness
 
 
@@ -17,24 +22,30 @@ def get_current_time():
 
 # ========================================================= [ VISUM 자동화 코드 실행 ]
 
-def run_first_script():
-    script_path = os.path.join(os.path.dirname(__file__), 'auto_simulation', 'auto_visum.py')
-    print(f"[{get_current_time()}] 실행: first.py")
+def run_visum_script():
+    script_path = os.path.join(os.path.dirname(__file__), 'auto simulation', 'auto_visum.py')
+    print(f"✅ [ {get_current_time()} ] Vissim 자동화 시뮬레이션 실행")
     subprocess.Popen(['python', script_path])
     
 # ========================================================= [ VISSIM 자동화 코드 실행 ]
 
-def run_second_script():
-    script_path = os.path.join(os.path.dirname(__file__), 'auto_simulation', 'auto_vissim.py')
-    print(f"[{get_current_time()}] 실행: second.py")
-    subprocess.Popen(['python', script_path])
+def run_vissim_script():
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    script_path = os.path.join(base_dir, 'auto simulation', 'auto_vissim.py')
+    
+    if not os.path.exists(script_path):
+        print(f"❌ 경로 오류: {script_path} 파일이 존재하지 않습니다.")
+        return
+    
+    print(f"✅ [ {get_current_time()} ] Vissim 자동화 시뮬레이션 실행")
+    subprocess.Popen(['python', script_path], cwd=os.path.dirname(script_path))
 
 # ========================================================= [ 자동화 시뮬레이션 스케쥴러 설정 ]
 
 # nohup python app.py > server.log 2>&1 &
 scheduler = BackgroundScheduler()
-scheduler.add_job(run_first_script, 'cron', hour=2, minute=0)
-scheduler.add_job(run_second_script, 'cron', hour=4, minute=0)
+scheduler.add_job(run_visum_script, 'cron', hour=2, minute=0)
+scheduler.add_job(run_vissim_script, 'cron', hour=1, minute=0)
 scheduler.start()
 
 # ========================================================= [ 티베로 연결 ]
@@ -73,6 +84,38 @@ def get_connection():
             f"PWD={DBPWD}"
         )
 
+# Decimal 처리 함수
+def convert_decimal(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    return obj
+
+# 권역별 매핑
+district_mapping = {
+    1: "교동지구",
+    2: "송정동",
+    3: "도심",
+    4: "아레나"
+}
+
+hourly_mapping = {
+    "08": "오전첨두 08시 ~ 09시",
+    "11": "오전비첨두 11시 ~ 12시",
+    "14": "오후비첨두 14시 ~ 15시",
+    "17": "오후첨두 17시 ~ 18시"
+}
+
+# 지체시간 기준 LOS
+def get_los(delay):
+    if delay < 15: return "A"
+    elif delay < 30: return "B"
+    elif delay < 50: return "C"
+    elif delay < 70: return "D"
+    elif delay < 100: return "E"
+    elif delay < 220: return "F"
+    elif delay < 340: return "FF"
+    else: return "FFF"
+
 # ========================================================= [ 로그인 ]
 
 @app.route('/')
@@ -95,1439 +138,684 @@ def sign_up():
 def home():
     return render_template('home.html')
 
-# ========================================================= [ SC-TWIN-0001 ]
 
-@app.route('/sctwin0001', methods=['GET', 'POST'])
-def sctwin0001():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
 
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
 
-            cursor.close()
-            conn.close()
 
-            response_data = {
-                'route': '/sctwin0001',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data': [
-                    {
-                        'fnr-twin-0005': '디지털 트윈 기반 AI 신호 분석 및 관리 시스템 기능 - 교통데이터 (교통 및 신호) 분석 가공 기능 교통분석: 전일/시간대별 교통',
+
+# ========================================================= [ 모니터링 1 - 시간대별 교통수요 분석정보 ]
+
+# ========================================================= [ 모니터링 2 - 교통존간 통행정보 ]
+
+@app.route('/monitoring/visum-zone-od', methods=['GET'])
+def visum_zone_od():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # [1] VISUM_ZONE_INFO → ZONE_ID, LAT, LON
+        cursor.execute("SELECT ZONE_ID, LAT, LON FROM VISUM_ZONE_INFO")
+        rows_info = cursor.fetchall()
+        df_zone_info = pd.DataFrame(
+            [[str(r[0]), float(r[1]), float(r[2])] for r in rows_info],
+            columns=["ZONE_ID", "LAT", "LON"]
+        )
+
+        # [2] VISUM_ZONE_OD → OD Matrix
+        cursor.execute("""
+            SELECT FROM_ZONE_ID, FROM_ZONE_NAME,
+            TO_ZONE_ID, TO_ZONE_NAME,
+            AUTO_MATRIX_VALUE, BUS_MATRIX_VALUE, HGV_MATRIX_VALUE
+            FROM VISUM_ZONE_OD
+        """)
+        rows_od = cursor.fetchall()
+        df_od = pd.DataFrame([
+            [
+                str(r[0]), str(r[1]), str(r[2]), str(r[3]),
+                float(r[4] or 0), float(r[5] or 0), float(r[6] or 0)
+            ] for r in rows_od
+        ], columns=[
+            "FROM_ZONE_ID", "FROM_ZONE_NAME",
+            "TO_ZONE_ID", "TO_ZONE_NAME",
+            "AUTO_MATRIX_VALUE", "BUS_MATRIX_VALUE", "HGV_MATRIX_VALUE"
+        ])
+
+        # [3] OD_MATRIX_VALUE 계산
+        df_od["OD_MATRIX_VALUE"] = (
+            df_od["AUTO_MATRIX_VALUE"] +
+            df_od["BUS_MATRIX_VALUE"] +
+            df_od["HGV_MATRIX_VALUE"]
+        ).round(6)
+
+        # [4] 상위 5개 TO_ZONE 추출
+        df_top5 = (
+            df_od.sort_values(["FROM_ZONE_ID", "OD_MATRIX_VALUE"], ascending=[True, False])
+            .groupby("FROM_ZONE_ID")
+            .head(5)
+            .reset_index(drop=True)
+        )
+
+        # [5] FROM ZONE 좌표 병합
+        df_top5 = df_top5.merge(
+            df_zone_info.rename(columns={
+                "ZONE_ID": "FROM_ZONE_ID",
+                "LAT": "FROM_LAT",
+                "LON": "FROM_LON"
+            }),
+            on="FROM_ZONE_ID", how="left"
+        )
+
+        # [6] TO ZONE 좌표 병합
+        df_top5 = df_top5.merge(
+            df_zone_info.rename(columns={
+                "ZONE_ID": "TO_ZONE_ID",
+                "LAT": "TO_LAT",
+                "LON": "TO_LON"
+            }),
+            on="TO_ZONE_ID", how="left"
+        )
+
+        # [7] 변환 → 중차 구조로 그룹
+        result = []
+        grouped = df_top5.groupby(["FROM_ZONE_ID", "FROM_ZONE_NAME", "FROM_LAT", "FROM_LON"])
+        for (from_id, from_name, from_lat, from_lon), group_df in grouped:
+            destinations = []
+            for _, row in group_df.iterrows():
+                destinations.append({
+                    "to_zone_name": row["TO_ZONE_NAME"],
+                    "coordinates": [row["TO_LAT"], row["TO_LON"]],
+                    "value": round(row["OD_MATRIX_VALUE"], 2)
+                })
+            result.append({
+                "coordinates": [from_lat, from_lon],
+                "from_zone_name": from_name,
+                "destination": destinations
+            })
+
+        conn.close()
+        print(f"✅ [ {get_current_time()} ] OD Matrix 응답 {len(result)}개 그룹 완료")
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"❌ [ {get_current_time()} ] OD Matrix 처리 에러: {str(e)}")
+        return jsonify({
+            "status": "fail",
+            "message": "OD 분석 중 에러 발생",
+            "error": str(e),
+            "timestamp": get_current_time()
+        }), 500
+
+# ========================================================= [ 모니터링 3 - 분석지역별 교통흐름 통계정보 ] - 4k 
+
+@app.route('/monitoring/statistics-traffic-flow/node-result', methods=['GET'])
+def statistics_traffic_flow():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # 📌 1. 최신 STAT_HOUR 추출
+        cursor.execute("""
+            SELECT STAT_DATE FROM (
+                SELECT SUBSTR(STAT_HOUR, 1, 8) AS STAT_DATE
+                FROM NODE_RESULT
+                GROUP BY SUBSTR(STAT_HOUR, 1, 8)
+                ORDER BY STAT_DATE DESC
+            )
+            WHERE ROWNUM = 1
+        """)
+        latest_date_row = cursor.fetchone()
+        if not latest_date_row:
+            return jsonify({"status": "fail", "message": "STAT_HOUR 날짜 데이터가 없습니다."}), 404
+
+        latest_date = latest_date_row[0]
+
+        # 📌 2. NODE_RESULT: delay만 간단히 조회
+        cursor.execute("""
+            SELECT DISTRICT, STAT_HOUR, NODE_ID, DELAY, VEHS
+            FROM NODE_RESULT
+            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
+        """, [latest_date])
+        result_rows = [tuple(row) for row in cursor.fetchall()]
+
+        if not result_rows:
+            return jsonify({"status": "fail", "message": "NODE_RESULT 데이터가 없습니다."}), 404
+
+        df_result = pd.DataFrame(result_rows, columns=["DISTRICT", "STAT_HOUR", "NODE_ID", "DELAY", "VEHS"])
+        df_result["DELAY"] = pd.to_numeric(df_result["DELAY"], errors='coerce')
+        df_result["VEHS"] = pd.to_numeric(df_result["VEHS"], errors='coerce').fillna(0).astype(int)
+        df_result["DISTRICT"] = df_result["DISTRICT"].apply(lambda x: int(x) if pd.notna(x) else None)
+
+        # 📌 3. NODE_INFO: 위치 정보만 조회
+        cursor.execute("""
+            SELECT NODE_ID, LAT, LON
+            FROM NODE_INFO
+        """)
+        info_rows = [tuple(row) for row in cursor.fetchall()]
+
+        if not info_rows:
+            return jsonify({"status": "fail", "message": "NODE_INFO 데이터가 없습니다."}), 404
+
+        df_info = pd.DataFrame(info_rows, columns=["NODE_ID", "LAT", "LON"])
+
+        # 📌 4. 병합
+        df_merged = pd.merge(df_result, df_info, on="NODE_ID", how="left")
+        df_filtered = df_merged.dropna(subset=["LAT", "LON", "DISTRICT"])
+
+        # 📌 5. DISTRICT 명칭 적용
+        df_filtered["DISTRICT_NAME"] = df_filtered["DISTRICT"].map(district_mapping)
+        
+        # 📌 6. stat_hour를 readable hourly label로 변환
+        df_filtered["STAT_HOUR_LABEL"] = df_filtered["STAT_HOUR"].apply(
+            lambda x: hourly_mapping.get(x[-2:], x)
+        )
+        df_filtered["TARGET_DATE"] = df_filtered["STAT_HOUR"].str[:8]
+
+        # 📌 7. 그룹화: STAT_HOUR + DISTRICT_NAME + NODE_ID
+        grouped = df_filtered.groupby(["TARGET_DATE", "STAT_HOUR_LABEL", "DISTRICT_NAME", "NODE_ID"]).agg({
+            "DELAY": "mean",
+            "LAT": "first",
+            "LON": "first"
+        }).reset_index()
+
+        grouped["DELAY"] = grouped["DELAY"].round(2)
+        grouped["LOS"] = grouped["DELAY"].apply(get_los)
+
+        # 📌 🚀 추가: VEH 집계
+        vehs_df = df_filtered.groupby(["TARGET_DATE", "STAT_HOUR_LABEL", "DISTRICT_NAME"])["VEHS"].sum().reset_index()
+        vehs_df["VEHS"] = vehs_df["VEHS"].astype(int)
+
+        # 📌 7. GeoJSON + VEHS 조합
+        result_json = dict()
+
+        for (hour_label, district), group_df in grouped.groupby(["STAT_HOUR_LABEL", "DISTRICT_NAME"]):
+            features = []
+            for idx, row in group_df.iterrows():
+                feature = {
+                    "type": "Feature",
+                    "id": idx,
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [float(row["LAT"]), float(row["LON"])]
                     },
-                    {
-                        'fnr-twin-0006': '오전 첨두/비첨두 시간 교통 표출'
-                    },
-                    {
-                        'fnr-twin-0007': '오후 첨두/비첨두 시간 교통 표출'
+                    "properties": {
+                        "los": row["LOS"]
                     }
-                ]
+                }
+                features.append(feature)
+
+            geojson = {
+                "type": "FeatureCollection",
+                "features": features
             }
+
+            veh_row = vehs_df[
+                (vehs_df["STAT_HOUR_LABEL"] == hour_label) &
+                (vehs_df["DISTRICT_NAME"] == district)
+            ]
+            vehs_value = int(veh_row["VEHS"].values[0]) if not veh_row.empty else 0
             
-            return Response(
-                json.dumps(response_data, ensure_ascii=False),
-                content_type='application/json; charset=utf-8'
+            result_json.setdefault(hour_label, {})[district] = {
+                "VEHS": vehs_value,
+                "GEOJSON": geojson
+            }
+
+        # 📌 8. 응답
+        json_data = json.dumps({"status": "success", "target_date": latest_date, "data": result_json}, ensure_ascii=False, default=convert_decimal)
+        return Response(json_data, content_type='application/json; charset=utf-8')
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ========================================================= [ 모니터링 4 - 도로구간별 통행량 정보 ]
+
+# ========================================================= [ 모니터링 5 - 교차로별 통행정보 ]
+
+@app.route('/monitoring/node-result', methods=['GET'])
+def node_result_summary():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        video_1 = r"C:/"
+
+        # 📌 1. 가장 최신 날짜(YYYYMMDD) 추출
+        cursor.execute("""
+            SELECT STAT_DATE FROM (
+                SELECT SUBSTR(STAT_HOUR, 1, 8) AS STAT_DATE
+                FROM NODE_RESULT
+                GROUP BY SUBSTR(STAT_HOUR, 1, 8)
+                ORDER BY STAT_DATE DESC
+            )
+            WHERE ROWNUM = 1
+        """)
+        latest_date_row = cursor.fetchone()
+        if not latest_date_row:
+            return jsonify({"status": "fail", "message": "STAT_HOUR 날짜 데이터가 없습니다."}), 404
+
+        latest_date = latest_date_row[0]
+
+        # 📌 2. 해당 날짜 데이터 조회
+        cursor.execute("""
+            SELECT STAT_HOUR, TIMEINT, NODE_ID, QLEN, VEHS, DELAY, STOPS
+            FROM NODE_RESULT
+            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
+        """, [latest_date])
+        rows = cursor.fetchall()
+        rows = [tuple(row) for row in rows]
+
+        if not rows:
+            return jsonify({"status": "fail", "message": "해당 날짜에 대한 교차로 데이터가 없습니다."}), 404
+
+        # 📌 3. DataFrame 생성
+        df = pd.DataFrame(rows, columns=["STAT_HOUR", "TIMEINT", "NODE_ID", "QLEN", "VEHS", "DELAY", "STOPS"])
+        df[["QLEN", "VEHS", "DELAY", "STOPS"]] = df[["QLEN", "VEHS", "DELAY", "STOPS"]].apply(pd.to_numeric, errors='coerce')
+
+        # 📌 4. 날짜와 시간 분리
+        df["DATE"] = df["STAT_HOUR"].str[:8]
+        df["HOUR"] = df["STAT_HOUR"].str[8:10]
+
+        # 📌 5. 평균값 계산
+        df_avg = df.groupby(["DATE", "HOUR", "NODE_ID"], as_index=False).agg({
+            "QLEN": "mean",
+            "VEHS": "mean",
+            "DELAY": "mean",
+            "STOPS": "mean"
+        }).round({"QLEN": 2, "DELAY": 2, "STOPS": 2})
+
+        # 📌 6. 교차로 이름 병합
+        cursor.execute("SELECT NODE_ID, CROSS_NAME FROM NODE_INFO")
+        node_info = cursor.fetchall()
+        node_info = [tuple(row) for row in node_info]
+        df_node_info = pd.DataFrame(node_info, columns=["NODE_ID", "NODE_NAME"])
+        df_node_info = df_node_info.drop_duplicates(subset="NODE_ID")
+
+        df_merged = df_avg.merge(df_node_info, on="NODE_ID", how="left")
+
+        # 📌 7. LOS 등급 계산
+        def get_los(delay):
+            if delay < 15: return "A"
+            elif delay < 30: return "B"
+            elif delay < 50: return "C"
+            elif delay < 70: return "D"
+            elif delay < 100: return "E"
+            elif delay < 220: return "F"
+            elif delay < 340: return "FF"
+            else: return "FFF"
+
+        df_merged["LOS"] = df_merged["DELAY"].apply(get_los)
+
+        # 📌 8. 최종 컬럼 정리
+        df_merged = df_merged[[
+            "DATE", "HOUR", "NODE_NAME", "QLEN", "VEHS", "DELAY", "STOPS", "LOS"
+        ]]
+
+        # 📌 9. 유효한 교차로만 필터링 + VEHS 정수 변환
+        df_merged = df_merged[df_merged["NODE_NAME"].notna()]
+        df_merged["VEHS"] = df_merged["VEHS"].round(0).astype("Int64")
+
+        # 📌 10. 중복 제거
+        df_merged = df_merged.drop_duplicates()
+
+        # 📌 11. JSON 변환 → { "target_date": "YYYYMMDD", "data": { "한글시간라벨": [ ... ] } }
+        result_dict = {}
+        target_date = None
+        mapped_data = {}
+
+        for (date, hour), group in df_merged.groupby(["DATE", "HOUR"]):
+            records = (
+                group.drop(columns=["DATE", "HOUR"])
+                    .replace({np.nan: None})
+                    .to_dict(orient="records")
             )
 
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0001',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
+            # 첫 번째 date 값을 target_date로 설정
+            if not target_date:
+                target_date = date
 
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
+            # hourly label로 변환
+            hour_label = hourly_mapping.get(hour, hour)  # 매핑 안되면 그대로 hour 사용
+            mapped_data[hour_label] = records
 
-            conn = get_connection()
-            cursor = conn.cursor()
+        # ✅ 응답 반환
+        return app.response_class(
+            response=json.dumps({
+                "target_date": target_date,
+                "data": mapped_data
+            }, ensure_ascii=False, allow_nan=False),
+            status=200,
+            mimetype='application/json'
+        )
 
-            print("[/sctwin0001] 받은 데이터:", data)
+    except Exception as e:
+        print(f"❌ 오류 발생: {str(e)}")
+        return jsonify({
+            "status": "fail",
+            "message": "교차로 결과 조회 중 오류 발생",
+            "error": str(e),
+            "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
 
-            cursor.close()
-            conn.close()
 
-            return jsonify({
-                'route': '/sctwin0001',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
 
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0001',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
 
-# ========================================================= [ SC-TWIN-0002 ]
 
-@app.route('/sctwin0002', methods=['GET', 'POST'])
-def sctwin0002():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
 
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
+# ========================================================= [ 신호운영 1 - 도로축별 통계정보 ]
 
-            cursor.close()
-            conn.close()
+@app.route('/signal/vttm-result', methods=['GET'])
+def vttm_result_summary():
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
 
-            return jsonify({
-                'route': '/sctwin0002',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0005': '디지털 트윈 기반 AI 신호 분석 및 관리 시스템 기능 - 교통데이터 (교통 및 신호) 분석 가공 기능 교통분석: 전일/시간대별 교통',
-                    },
-                    {
-                        'fnr-twin-0008': '도로 구간별 진입/진출 교통 분석'
+        # 📌 1. 가장 최신 날짜(YYYYMMDD) 추출
+        cursor.execute("""
+            SELECT STAT_DATE FROM (
+                SELECT SUBSTR(STAT_HOUR, 1, 8) AS STAT_DATE
+                FROM NODE_RESULT
+                GROUP BY SUBSTR(STAT_HOUR, 1, 8)
+                ORDER BY STAT_DATE DESC
+            )
+            WHERE ROWNUM = 1
+        """)
+        latest_date_row = cursor.fetchone()
+        if not latest_date_row:
+            return jsonify({"status": "fail", "message": "STAT_HOUR 날짜 데이터가 없습니다."}), 404
+
+        latest_date = latest_date_row[0]
+
+        # 📌 2. 해당 날짜의 교통 결과 데이터 조회
+        cursor.execute("""
+            SELECT DISTRICT, STAT_HOUR, FROM_NODE_NAME, TO_NODE_NAME, UPDOWN, DISTANCE, TRAVEL_TIME
+            FROM VTTM_RESULT
+            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
+        """, [latest_date])
+        rows = cursor.fetchall()
+
+        columns = ['DISTRICT', 'STAT_HOUR', 'FROM_NODE_NAME', 'TO_NODE_NAME', 'UPDOWN', 'DISTANCE', 'TRAVEL_TIME']
+
+        # 📌 데이터 전처리 구조 초기화
+        grouped_data = defaultdict(lambda: defaultdict(list))
+        pair_buffer = defaultdict(lambda: defaultdict(dict))  # (district, hour_label) => segment_key => {updown}
+
+        for row in rows:
+            record = dict(zip(columns, row))
+            district_id = record['DISTRICT']
+            stat_hour = record['STAT_HOUR']
+            hour_code = stat_hour[-2:]
+            hour_label = hourly_mapping.get(hour_code, hour_code)
+            district_name = district_mapping.get(district_id, f"기타지역-{district_id}")
+
+            from_node = record['FROM_NODE_NAME']
+            to_node = record['TO_NODE_NAME']
+            updown = str(record['UPDOWN'])
+            distance = float(record['DISTANCE'] or 0)
+            travel_time_val = float(record['TRAVEL_TIME'] or 0)
+
+            travel_time = round(travel_time_val, 1) if travel_time_val > 0 else 0.0
+            travel_speed = round((distance / travel_time_val) * 3.6, 1) if travel_time_val > 0 else 0.0
+            travel_cost = 99.9
+
+            segment_key = tuple(sorted([from_node, to_node]))
+
+            pair_buffer[(district_name, hour_label)][segment_key][updown] = {
+                "from_node": from_node,
+                "to_node": to_node,
+                "travel_time": travel_time,
+                "travel_speed": travel_speed,
+                "travel_cost": travel_cost
+            }
+
+        # 📌 완성된 쌍만 정리
+        for (district_name, hour_label), segment_dict in pair_buffer.items():
+            for segment_key, directions in segment_dict.items():
+                if '0' in directions and '1' in directions:
+                    from_node_data = directions['0']
+                    to_node_data = directions['1']
+
+                    record = {
+                        from_node_data['from_node']: {
+                            "travel_cost": from_node_data['travel_cost'],
+                            "travel_speed": from_node_data['travel_speed'],
+                            "travel_time": from_node_data['travel_time']
+                        },
+                        to_node_data['from_node']: {
+                            "travel_cost": to_node_data['travel_cost'],
+                            "travel_speed": to_node_data['travel_speed'],
+                            "travel_time": to_node_data['travel_time']
+                        }
                     }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0002',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0002] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0002',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0002',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0010 ~ 11 ]
-
-@app.route('/sctwin0010_11', methods=['GET', 'POST'])
-def sctwin0010_11():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0010_11',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0016': '도로망 전체 평균 지체시간/평균통행속도',
-                    },
-                    {
-                        'fnr-twin-0017': '도로망 전체 속도/밀도'
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0010_11',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0010_11] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0010_11',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0010_11',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0016 ~ 18 ]
-
-@app.route('/sctwin0016_18', methods=['GET', 'POST'])
-def sctwin0016_18():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0016_18',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0026': '도로구간 V/C',
-                    },
-                    {
-                        'fnr-twin-0027': '주요 교통축 V/C, 통행속도/심각도'
-                    },
-                    {
-                        'fnr-twin-0028': '주요 교차로 지체시간/서비스수준'
-                    },
-                    {
-                        'fnr-twin-0028': '구간별 통행속도/구간별 통행시간(?)'
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0016_18',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0016_18] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0016_18',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0016_18',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0027_44_45 ]
-
-@app.route('/sctwin0027_44_45', methods=['GET', 'POST'])
-def sctwin0027_44_45():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0027_44_45',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0042': '도로구간 통행시간/통행속도/통행비용',
-                    },
-                    {
-                        'fnr-twin-0106': '시간단위 교차로 교통량 집계: 교통량/지체시간/서비스수준',
-                    },
-                    {
-                        'fnr-twin-0107': '일단위 교차로 교통량 집계: 교통량/지체시간/서비스수준',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0027_44_45',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0027_44_45] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0027_44_45',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0027_44_45',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0028_30_40_41_42_43 ]
-
-@app.route('/sctwin0028_30_40_41_42_43', methods=['GET', 'POST'])
-def sctwin0028_30_40_41_42_43():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0028_30_40_41_42_43',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0043': '교차로 방향별(직진, 좌회전, 우회전) 교통흐름',
-                    },
-                    {
-                        'fnr-twin-0077': '기초데이터 조회/관리 기능 구간 설정 및 파라미터 관리: 방향별 구간 정보',
-                    },
-                    {
-                        'fnr-twin-0078': '구간설정 및 파라미터 관리: 링크 정보 조회',
-                    },
-                    {
-                        'fnr-twin-0099': '교차로 15분/1시간/일별 교통량 통계 정보 조회',
-                    },
-                    {
-                        'fnr-twin-0101': '통계조회: 직진/우회전/좌회전 15분 평균 지체시간 통계 정보',
-                    },
-                    {
-                        'fnr-twin-0103': '통계조회: 접근로별 15분 평균 지체시간 통계 정보',
-                    },
-                    {
-                        'fnr-twin-0105': '시각화 교통데이터 집계: 평균 접근로 평균 교통량/지체시간/서비스수준 집계 정보',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0028_30_40_41_42_43',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0028_30_40_41_42_43] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0028_30_40_41_42_43',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0028_30_40_41_42_43',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0031_34 ]
-
-@app.route('/sctwin0031_34', methods=['GET', 'POST'])
-def sctwin0031_34():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0031_34',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0082': '지점환경 관리： 도로조건 조회 (차로수)',
-                    },
-                    {
-                        'fnr-twin-0084': '지점환경 관리: 교통조건 조회 (교차로 유형)',
-                    },
-                    {
-                        'fnr-twin-0086': '지점환경 관리: 신호운영 조회 (주기)',
-                    },
-                    {
-                        'fnr-twin-0088': '지점환경 관리: 교차로정보 조회 (교차로 중요도)',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0031_34',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0031_34] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0031_34',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0031_34',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0035_38 ]
-
-@app.route('/sctwin0035_38', methods=['GET', 'POST'])
-def sctwin0035_38():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0035_38',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0090': '메인지도: API 지도 조회',
-                    },
-                    {
-                        'fnr-twin-0091': '메인지도: 지점 정보 조회',
-                    },
-                    {
-                        'fnr-twin-0094': '메인지도: 정보생성 위치 및 운영정보',
-                    },
-                    {
-                        'fnr-twin-0095': '메인지도: 정보생성지점 실시간 서비스 수준',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0035_38',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0035_38] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0035_38',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0035_38',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0039_46_47 ]
-
-@app.route('/sctwin0039_46_47', methods=['GET', 'POST'])
-def sctwin0039_46_47():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0039_46_47',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0097': '15분/1시간/일별 4개 지구 교통량 조회',
-                    },
-                    {
-                        'fnr-twin-0109': '표준 노드/링크 일/월/년 평균 속도 생성',
-                    },
-                    {
-                        'fnr-twin-0111': '도로 축별 시간/일/월/년 평균 속도 생성',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0039_46_47',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0039_46_47] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0039_46_47',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0039_46_47',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0048 ]
-
-@app.route('/sctwin0048', methods=['GET', 'POST'])
-def sctwin0048():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0048',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0112': '관리자 로그인 페이지 렌딩',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0048',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0048] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0048',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0048',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0051 ]
-
-@app.route('/sctwin0051', methods=['GET', 'POST'])
-def sctwin0051():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0051',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0123': 'visum 기반 기종점 이동 통행량 분석정보',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0051',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0051] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0051',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0051',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0052 ]
-
-@app.route('/sctwin0052', methods=['GET', 'POST'])
-def sctwin0052():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0052',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0124': 'visum 기반 시간대별 통행량 및 도로용량 정보',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0052',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0052] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0052',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0052',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0053 ]
-
-@app.route('/sctwin0053', methods=['GET', 'POST'])
-def sctwin0053():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0053',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0125': 'visum 기반 교통존 단위 통행정보',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0053',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0053] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0053',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0053',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0054 ]
-
-@app.route('/sctwin0054', methods=['GET', 'POST'])
-def sctwin0054():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0054',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0126': 'vissim 기반 시간간격 단위 지점(?) 통과교통량/통행속도/통행시간 정보. 그림엔 vms 트윈사진임',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0054',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0054] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0054',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0054',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0055 ]
-
-@app.route('/sctwin0055', methods=['GET', 'POST'])
-def sctwin0055():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0055',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0127': 'vissim 기반 시간간격 단위 교차로 진출입교통량/지체시간/대기행렬/정지횟수/연료소모량 정보',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0055',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0055] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0055',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0055',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0056 ]
-
-@app.route('/sctwin0056', methods=['GET', 'POST'])
-def sctwin0056():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0056',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0128': 'vissim 기반 분석지역 단위 상황별 평균 교통량 통계',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0056',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0056] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0056',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0056',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0057 ]
-
-@app.route('/sctwin0057', methods=['GET', 'POST'])
-def sctwin0057():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0057',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0135': '시간대별 혼잡 구간 및 교차로 분석',
-                    },
-                    {
-                        '혼잡 구간 리스트': [
-                                '구간명',
-                                '지역',
-                                '혼잡도 판단(km/h)',
-                                '혼잡 지속성',
-                                '교통상황 판단'
-                            ],
-                    },
-                    {
-                        '혼잡 교차로 리스트': [
-                                '교차로명',
-                                '지역',
-                                '혼잡도 판단(지체시간)',
-                                '혼잡 지속성',
-                                '교통상황 판단'
-                            ],
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0057',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0057] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0057',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0057',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0058 ]
-
-@app.route('/sctwin0058', methods=['GET', 'POST'])
-def sctwin0058():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0058',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0140': '신호 최적화 정보',
-                    },
-                    {
-                        '혼잡 교차로 신호최적화 효과 검증': [
-                                '기준일자',
-                                '기준요일',
-                                '교차로명',
-                                '행정구역',
-                                '교통축',
-                                '교차로유형',
-                                '지체시간',
-                                '서비스수준',
-                                '혼잡도'
-                            ],
-                    },
-                    {
-                        '현황': [
-                                '지체시간',
-                                '통행속도',
-                            ],
-                        '개선': [
-                                '지체시간',
-                                '통행속도',
-                            ],
-                    },
-                    '교통축 GreenBand 비교 이미지',
-                    '교차로 녹색시간 비교 이미지'
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0058',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0058] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0058',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0058',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ SC-TWIN-0059 ]
-
-@app.route('/sctwin0059', methods=['GET', 'POST'])
-def sctwin0059():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0059',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        'fnr-twin-0142': '교차로 통행 상황 가늠 목적. 시내 전체 혹은 주요 축별 교차로 소통상황(링크)',
-                    }
-                ]
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0059',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
-
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            print("[/sctwin0059] 받은 데이터:", data)
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/sctwin0059',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
-
-        except Exception as e:
-            return jsonify({
-                'route': '/sctwin0059',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
-
-# ========================================================= [ 딥러닝 모델 ]
-
-@app.route('/analy_traffic_vol', methods=['GET', 'POST'])
-def analy_traffic_vol():
-    if request.method == 'GET':
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # 접속 성공 확인용 메시지
-            cursor.execute("SELECT 1 FROM DUAL")
-            result = cursor.fetchone()
-
-            cursor.close()
-            conn.close()
-
-            return jsonify({
-                'route': '/analy_traffic_vol',
-                'method': 'GET',
-                'status': 'DB 연결 성공',
-                'result': result[0],
-                'time': get_current_time(),
-                'data':[
-                    {
-                        '딥러닝': [
-                                '학습횟수',
-                                '정확도',
-                                '오차',
-                                '가공데이터',
-                                '추정교통량',
-                                '예측데이터 정확성 비교(가로교통량)',
-                                '예측데이터 정확성 비교(교차로 총 진입교통량) > 방향별로 해야 할 듯'
-                            ],
-                    },
-                    {
-                        '추가 필요': [
-                            '관광데이터',
-                            '날씨데이터',
-                            '단기 예측',
-                            '장기 예측(불가능 예상)',
-                            '예측 정보의 신뢰성 검증을 위한 디지털 트윈 시뮬레이션 프로그램 구동(?)'
+                    grouped_data[district_name][hour_label].append(record)
+
+        return jsonify({
+            "status": "success",
+            "target_date": latest_date,
+            "data": grouped_data
+        }), 200
+
+    except Exception as e:
+        print(f"❌ 오류 발생: {str(e)}")
+        return jsonify({
+            "status": "fail",
+            "message": "교차로 결과 조회 중 오류 발생",
+            "error": str(e),
+            "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
+
+# ========================================================= [ 신호운영 2 - 지점별 통행정보 ]
+
+# ========================================================= [ 신호운영 3 - 시간대별 교통혼잡 정보 ]
+
+# ========================================================= [ 신호운영 4 - 교차로별 효과지표 분석정보 - 접근로별 ]
+
+@app.route('/signal/node-approach-result', methods=['GET'])
+def node_approach_result():
+    try:
+        hour_filter = request.args.get('hour')  # '08', '11', '14', '17' 중 하나
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # 📌 1. 최신 일자(STAT_HOUR → YYYYMMDD) 조회
+        cursor.execute("""
+            SELECT STAT_DATE FROM (
+                SELECT SUBSTR(STAT_HOUR, 1, 8) AS STAT_DATE
+                FROM NODE_DIR_RESULT
+                GROUP BY SUBSTR(STAT_HOUR, 1, 8)
+                ORDER BY STAT_DATE DESC
+            )
+            WHERE ROWNUM = 1
+        """)
+        latest_date_row = cursor.fetchone()
+        if not latest_date_row:
+            return jsonify({
+                "status": "fail",
+                "message": "NODE_DIR_RESULT에 STAT_HOUR 데이터가 없습니다.",
+                "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }), 404
+
+        latest_date = latest_date_row[0]
+
+        # 📌 2. NODE_DIR_RESULT 조회
+        cursor.execute("""
+            SELECT DISTRICT, STAT_HOUR, TIMEINT, NODE_ID, CROSS_ID, SA_NO,
+                APPR_ID, DIRECTION, QLEN, VEHS, DELAY, STOPS
+            FROM NODE_DIR_RESULT
+            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
+        """, [latest_date])
+        node_dir_rows = [tuple(row) for row in cursor.fetchall()]
+        node_dir_columns = ['DISTRICT', 'STAT_HOUR', 'TIMEINT', 'NODE_ID', 'CROSS_ID', 'SA_NO',
+                            'APPR_ID', 'DIRECTION', 'QLEN', 'VEHS', 'DELAY', 'STOPS']
+        df_node_dir = pd.DataFrame(node_dir_rows, columns=node_dir_columns)
+        for col in df_node_dir.columns:
+            df_node_dir[col] = df_node_dir[col].map(lambda x: float(x) if isinstance(x, Decimal) else x)
+
+        # 📌 3. NODE_DIR_INFO 조회
+        cursor.execute("""
+            SELECT CROSS_ID, DISTRICT, NODE_ID, NODE_NAME, CROSS_TYPE, INT_TYPE,
+                APPR_ID, DIRECTION, APPR_NAME
+            FROM NODE_DIR_INFO
+        """)
+        node_dir_info_rows = [tuple(row) for row in cursor.fetchall()]
+        node_dir_info_columns = ['CROSS_ID', 'DISTRICT', 'NODE_ID', 'NODE_NAME',
+                                'CROSS_TYPE', 'INT_TYPE', 'APPR_ID', 'DIRECTION', 'APPR_NAME']
+        df_node_info = pd.DataFrame(node_dir_info_rows, columns=node_dir_info_columns)
+        for col in df_node_info.columns:
+            df_node_info[col] = df_node_info[col].map(lambda x: float(x) if isinstance(x, Decimal) else x)
+
+        # 📌 메타 정보 추출
+        df_node_meta = df_node_info.drop_duplicates(subset=['NODE_ID'])[
+            ['NODE_ID', 'NODE_NAME', 'CROSS_TYPE', 'INT_TYPE']
+        ].set_index('NODE_ID')
+
+        df_appr_meta = df_node_info[[
+            'NODE_ID', 'APPR_ID', 'DIRECTION', 'APPR_NAME'
+        ]].dropna()
+
+        # 📌 4. 결과 가공
+        grouped_result = {}
+
+        for stat_hour, df_hour in df_node_dir.groupby('STAT_HOUR'):
+            
+            # 📌 hour 필터 적용
+            if hour_filter and not stat_hour.endswith(hour_filter):
+                continue
+            
+            grouped_result[stat_hour] = {}
+
+            for timeint, df_time in df_hour.groupby('TIMEINT'):
+                timeint_str = str(timeint)
+                grouped_result[stat_hour][timeint_str] = {}
+
+                for node_id, df_node in df_time.groupby('NODE_ID'):
+                    node_dict = {}
+                    appr_dict = {}
+                    cross_id = df_node['CROSS_ID'].iloc[0]
+                    sa_no = df_node['SA_NO'].iloc[0]
+
+                    # 전체 교차로 요약 계산용
+                    all_vehs_total = 0
+                    all_delay_sum = 0.0
+                    all_delay_count = 0
+
+                    for appr_id, df_appr in df_node.groupby('APPR_ID'):
+                        appr_id_str = str(int(appr_id))
+
+                        vehs_sum_val = df_appr['VEHS'].sum(skipna=True) or 0
+                        vehs_sum = str(int(round(vehs_sum_val)))
+
+                        # NaN 방지: delay 평균값 구하기
+                        delay_vals = df_appr['DELAY'].dropna().astype(float).tolist()
+                        if delay_vals:
+                            delay_avg_val = sum(delay_vals) / len(delay_vals)
+                            delay_avg = round(delay_avg_val, 1)
+                        else:
+                            delay_avg_val = 0.0
+                            delay_avg = 0.0
+
+                        los = get_los(delay_avg)
+
+                        # 전체 누적용 (delay 평균 × count → 전체 지연합)
+                        all_vehs_total += int(vehs_sum)
+                        all_delay_sum += sum(delay_vals)  # 안전하게 dropna 후 합
+                        all_delay_count += len(delay_vals)
+
+                        # 이름 조회
+                        match = df_appr_meta[
+                            (df_appr_meta['NODE_ID'] == node_id) &
+                            (df_appr_meta['APPR_ID'] == appr_id)
                         ]
-                    }
-                ]
-            })
+                        appr_name = match.iloc[0]['APPR_NAME'] if not match.empty else "미지정"
 
-        except Exception as e:
-            return jsonify({
-                'route': '/analy_traffic_vol',
-                'method': 'GET',
-                'status': 'DB 연결 실패',
-                'error': str(e),
-                'time': get_current_time()
-            }), 500
+                        appr_dict[appr_id_str] = {
+                            "APPR_NAME": appr_name,
+                            "VEHS": vehs_sum,
+                            "DELAY": delay_avg,
+                            "LOS": los
+                        }
 
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
+                    # 노드 요약 계산
+                    node_dict['CROSS_ID'] = cross_id
+                    node_dict['SA_NO'] = sa_no
 
-            conn = get_connection()
-            cursor = conn.cursor()
+                    if node_id in df_node_meta.index:
+                        cross_type = df_node_meta.loc[node_id, 'CROSS_TYPE']
+                        int_type = df_node_meta.loc[node_id, 'INT_TYPE']
+                        node_name = df_node_meta.loc[node_id, 'NODE_NAME']
 
-            print("[/analy_traffic_vol] 받은 데이터:", data)
+                        # ✅ CROSS_ID 정수 변환
+                        try:
+                            node_dict['CROSS_ID'] = int(cross_id)
+                        except (ValueError, TypeError):
+                            node_dict['CROSS_ID'] = cross_id
 
-            cursor.close()
-            conn.close()
+                        # ✅ CROSS_TYPE 정수 변환
+                        try:
+                            node_dict['CROSS_TYPE'] = int(cross_type)
+                        except (ValueError, TypeError):
+                            node_dict['CROSS_TYPE'] = cross_type
 
-            return jsonify({
-                'route': '/analy_traffic_vol',
-                'method': 'POST',
-                'message': 'POST 요청 처리 성공',
-                'received_data': data
-            })
+                        node_dict['NODE_NAME'] = node_name
+                        node_dict['INT_TYPE'] = int_type
 
-        except Exception as e:
-            return jsonify({
-                'route': '/analy_traffic_vol',
-                'method': 'POST',
-                'message': 'DB 연결 또는 처리 중 오류 발생',
-                'error': str(e)
-            }), 500
+                        if all_delay_count > 0:
+                            total_delay_avg = round(all_delay_sum / all_delay_count, 1)
+                        else:
+                            total_delay_avg = 0.0
+
+                        node_dict['TOTAL_VEHS'] = all_vehs_total
+                        node_dict['TOTAL_DELAY'] = total_delay_avg
+                        node_dict['TOTAL_LOS'] = get_los(total_delay_avg)
+
+                    node_dict.update(appr_dict)
+                    grouped_result[stat_hour][timeint_str][str(node_id)] = node_dict
+
+        return app.response_class(
+            response=json.dumps({
+                "status": "success",
+                "latest_date": latest_date,
+                "data": grouped_result,
+                "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }, ensure_ascii=False),
+            status=200,
+            mimetype='application/json'
+        )
+
+    except Exception as e:
+        return jsonify({
+            "status": "fail",
+            "message": "노드 접근 결과 조회 중 오류 발생",
+            "error": str(e),
+            "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 500
+
+# ========================================================= [ 신호운영 5 - 교차로별 효과지표 분석정보 - 방향별 ]
+
+
+
+
+
+
+
+# ========================================================= [ 교통관리 1 - 교통량 패턴비교 분석정보 ]
+
+# ========================================================= [ 교통관리 2 - Deep Learning Progress Overview ]
+
+# ========================================================= [ 교통관리 3 - SA(Sub Area) 그룹 관리정보 ]
+
+# ========================================================= [ 교통관리 4 - 혼잡교차로 신호최적화 효과검증 ]
+
+
+
+
+
+
+
+
+
+
+
 
 # ========================================================= [ 서버실행 ]
 
