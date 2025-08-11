@@ -219,11 +219,11 @@ class ModelVisualizer:
         for folder in self.folders.values():
             os.makedirs(folder, exist_ok=True)
         
-        print(f"📁 Visualization folders created in {output_folder}/")
+        print(f" Visualization folders created in {output_folder}/")
     
     def load_model_and_data(self, model_path, model_type='STGCN'):
         """Load saved model and prepare data"""
-        print(f"\n💾 Loading model from {model_path}...")
+        print(f"\n Loading model from {model_path}...")
         
         # Load checkpoint with weights_only=False (for sklearn objects)
         checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
@@ -245,10 +245,10 @@ class ModelVisualizer:
         scaler = checkpoint['scaler']
         metadata = checkpoint['metadata']
         
-        print(f"✅ Model loaded successfully!")
+        print(f" Model loaded successfully!")
         
         # Load test data
-        print("📂 Loading test data...")
+        print(" Loading test data...")
         
         # Load graph structure
         with open(os.path.join('gnn_data', 'graph_structure.pkl'), 'rb') as f:
@@ -287,7 +287,7 @@ class ModelVisualizer:
     
     def generate_predictions(self, model, scaler, edge_index, sequences, targets, sample_size=500):
         """Generate predictions using the loaded model"""
-        print(f"\n🔮 Generating predictions on {sample_size} samples...")
+        print(f"\n Generating predictions on {sample_size} samples...")
         
         # Take last samples as test set
         test_sequences = sequences[-sample_size:]
@@ -319,7 +319,7 @@ class ModelVisualizer:
         rmse = np.sqrt(mse)
         r2 = r2_score(y_true.flatten(), y_pred.flatten())
         
-        print(f"✅ Predictions generated!")
+        print(f" Predictions generated!")
         print(f"   MAE:  {mae:.4f}")
         print(f"   RMSE: {rmse:.4f}")
         print(f"   R²:   {r2:.4f}")
@@ -328,43 +328,43 @@ class ModelVisualizer:
     
     def create_all_visualizations(self, y_true, y_pred, metrics, model_name, cross_ids):
         """Create comprehensive visualizations"""
-        print(f"\n📊 Creating visualizations for {model_name}...")
+        print(f"\n Creating visualizations for {model_name}...")
         
         try:
             # 1. Accuracy visualizations
-            print("  1️⃣ Creating accuracy analysis...")
+            print("   Creating accuracy analysis...")
             self.plot_accuracy_analysis(y_true, y_pred, metrics, model_name)
-            print("     ✅ Accuracy analysis completed")
+            print("      Accuracy analysis completed")
             
             # 2. Error visualizations
-            print("  2️⃣ Creating error analysis...")
+            print("  Creating error analysis...")
             self.plot_error_analysis(y_true, y_pred, model_name)
-            print("     ✅ Error analysis completed")
+            print("      Error analysis completed")
             
             # 3. Direction-wise performance
-            print("  3️⃣ Creating directional performance analysis...")
+            print("   Creating directional performance analysis...")
             self.plot_directional_performance(y_true, y_pred, model_name)
-            print("     ✅ Directional performance completed")
+            print("      Directional performance completed")
             
             # 4. Time series comparison
-            print("  4️⃣ Creating time series comparison...")
+            print("   Creating time series comparison...")
             self.plot_time_series_comparison(y_true, y_pred, model_name)
-            print("     ✅ Time series comparison completed")
+            print("      Time series comparison completed")
             
             # 5. Intersection performance
-            print("  5️⃣ Creating intersection performance analysis...")
+            print("   Creating intersection performance analysis...")
             self.plot_intersection_performance(y_true, y_pred, model_name, cross_ids)
-            print("     ✅ Intersection performance completed")
+            print("      Intersection performance completed")
             
             # 6. Peak hour analysis
-            print("  6️⃣ Creating peak hour analysis...")
+            print("   Creating peak hour analysis...")
             self.plot_peak_hour_analysis(y_true, y_pred, model_name)
-            print("     ✅ Peak hour analysis completed")
+            print("      Peak hour analysis completed")
             
-            print(f"\n✅ All visualizations created for {model_name}!")
+            print(f"\n All visualizations created for {model_name}!")
             
         except Exception as e:
-            print(f"\n❌ Error creating visualizations: {str(e)}")
+            print(f"\n Error creating visualizations: {str(e)}")
             import traceback
             traceback.print_exc()
     
@@ -950,9 +950,9 @@ class ModelVisualizer:
 
 def main():
     """Main function to generate visualizations from saved models"""
-    print("🎨 " + "="*70)
-    print("🎨 Traffic GNN Model Visualization from Saved Models")
-    print("🎨 " + "="*70)
+    print(" " + "="*70)
+    print(" Traffic GNN Model Visualization from Saved Models")
+    print(" " + "="*70)
     
     # Initialize visualizer
     visualizer = ModelVisualizer()
@@ -967,12 +967,12 @@ def main():
     for model_type, model_path in model_files.items():
         if os.path.exists(model_path):
             available_models[model_type] = model_path
-            print(f"✅ Found {model_type} model: {model_path}")
+            print(f" Found {model_type} model: {model_path}")
         else:
-            print(f"❌ {model_type} model not found: {model_path}")
+            print(f" {model_type} model not found: {model_path}")
     
     if not available_models:
-        print("\n❌ No saved models found! Please train models first.")
+        print("\n No saved models found! Please train models first.")
         return
     
     # Process each available model
@@ -995,13 +995,13 @@ def main():
             visualizer.create_all_visualizations(y_true, y_pred, metrics, model_type, cross_ids)
             
         except Exception as e:
-            print(f"❌ Error processing {model_type}: {str(e)}")
+            print(f" Error processing {model_type}: {str(e)}")
             import traceback
             traceback.print_exc()
             continue
     
-    print(f"\n✅ All visualizations saved in: {visualizer.output_folder}/")
-    print("🎉 Visualization generation completed!")
+    print(f"\n All visualizations saved in: {visualizer.output_folder}/")
+    print(" Visualization generation completed!")
 
 if __name__ == "__main__":
     main()

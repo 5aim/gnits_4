@@ -194,7 +194,7 @@ class FutureTrafficPredictor:
         
     def load_model_and_data(self):
         """모델과 필요한 데이터 로드"""
-        print(f"💾 Loading {self.model_type} model from {self.model_path}...")
+        print(f" Loading {self.model_type} model from {self.model_path}...")
         
         # Load checkpoint
         checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
@@ -216,10 +216,10 @@ class FutureTrafficPredictor:
         self.scaler = checkpoint['scaler']
         self.metadata = checkpoint['metadata']
         
-        print("✅ Model loaded successfully!")
+        print(" Model loaded successfully!")
         
         # Load graph structure
-        print("📂 Loading graph structure...")
+        print(" Loading graph structure...")
         with open(os.path.join('gnn_data', 'graph_structure.pkl'), 'rb') as f:
             graph_data = pickle.load(f)
         
@@ -243,14 +243,14 @@ class FutureTrafficPredictor:
         self.edge_index = self.edge_index.to(self.device)
         
         # Load sequences to get last known data
-        print("📈 Loading temporal sequences...")
+        print(" Loading temporal sequences...")
         with open(os.path.join('gnn_data', 'temporal_sequences.pkl'), 'rb') as f:
             seq_data = pickle.load(f)
         
         self.sequences = seq_data['sequences']
         self.timestamps = seq_data.get('timestamps', [])
         
-        print(f"✅ Data loaded successfully!")
+        print(f" Data loaded successfully!")
         print(f"   Last timestamp: {self.timestamps[-1] if self.timestamps else 'Unknown'}")
     
     def create_time_features(self, timestamp):
@@ -280,7 +280,7 @@ class FutureTrafficPredictor:
                 start_date = start_date + timedelta(days_ahead)
                 start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        print(f"📅 Prediction period: {start_date} to {start_date + timedelta(days=7)}")
+        print(f" Prediction period: {start_date} to {start_date + timedelta(days=7)}")
         
         # Generate predictions
         all_predictions = []
@@ -360,19 +360,19 @@ class FutureTrafficPredictor:
         # Convert to numpy array
         predictions_array = np.array(all_predictions)  # Shape: [672, 106, 24]
         
-        print(f"✅ Generated {len(all_predictions)} predictions")
+        print(f" Generated {len(all_predictions)} predictions")
         print(f"   Shape: {predictions_array.shape}")
         
         return predictions_array, all_timestamps
     
     def save_predictions_to_excel(self, predictions, timestamps, output_folder='future_predictions'):
         """예측 결과를 Excel로 저장"""
-        print("\n💾 Saving predictions to Excel...")
+        print("\n Saving predictions to Excel...")
         
         os.makedirs(output_folder, exist_ok=True)
         
         # 1. 전체 원시 데이터 저장
-        print("  📊 Creating raw data...")
+        print("   Creating raw data...")
         all_data = []
         
         for t_idx, timestamp in enumerate(timestamps):
@@ -392,7 +392,7 @@ class FutureTrafficPredictor:
         df_raw = pd.DataFrame(all_data)
         
         # 2. 일별 요약 데이터
-        print("  📊 Creating daily summaries...")
+        print("   Creating daily summaries...")
         daily_summaries = {}
         
         for day in range(7):
@@ -423,7 +423,7 @@ class FutureTrafficPredictor:
             daily_summaries[day_date] = pd.DataFrame(intersection_daily)
         
         # 3. 시간대별 평균 (일주일 전체)
-        print("  📊 Creating hourly patterns...")
+        print("   Creating hourly patterns...")
         hourly_patterns = []
         
         for hour in range(24):
@@ -441,7 +441,7 @@ class FutureTrafficPredictor:
         df_hourly = pd.DataFrame(hourly_patterns)
         
         # 4. 방향별 주간 총량
-        print("  📊 Creating direction summaries...")
+        print("   Creating direction summaries...")
         direction_summary = []
         
         for d_idx in range(24):
@@ -473,7 +473,7 @@ class FutureTrafficPredictor:
             df_overview.to_excel(writer, sheet_name='Overview', index=False)
             
             # Raw predictions (sampled - too large for full data)
-            print("  📊 Saving sampled raw data...")
+            print("   Saving sampled raw data...")
             df_raw_sample = df_raw[df_raw['hour'].isin([0, 6, 12, 18])]  # Sample 4 hours per day
             df_raw_sample.to_excel(writer, sheet_name='Raw_Data_Sample', index=False)
             
@@ -489,7 +489,7 @@ class FutureTrafficPredictor:
             df_directions.to_excel(writer, sheet_name='Direction_Summary', index=False)
             
             # Weekly summary by intersection
-            print("  📊 Creating weekly intersection summary...")
+            print("   Creating weekly intersection summary...")
             intersection_summary = []
             for i_idx, cross_id in enumerate(self.target_cross_ids):
                 week_total = np.sum(predictions[:, i_idx, :])
@@ -508,10 +508,10 @@ class FutureTrafficPredictor:
             df_intersection_weekly = pd.DataFrame(intersection_summary)
             df_intersection_weekly.to_excel(writer, sheet_name='Weekly_Intersection_Summary', index=False)
         
-        print(f"✅ Predictions saved to: {excel_path}")
+        print(f" Predictions saved to: {excel_path}")
         
         # 6. 일별 CSV 파일 저장 (상세 데이터)
-        print("\n💾 Saving daily CSV files...")
+        print("\n Saving daily CSV files...")
         csv_folder = os.path.join(output_folder, 'daily_csv')
         os.makedirs(csv_folder, exist_ok=True)
         
@@ -538,15 +538,15 @@ class FutureTrafficPredictor:
             df_day = pd.DataFrame(day_data)
             csv_path = os.path.join(csv_folder, f'predictions_{day_date.strftime("%Y%m%d")}.csv')
             df_day.to_csv(csv_path, index=False)
-            print(f"  ✅ Saved: {csv_path}")
+            print(f"   Saved: {csv_path}")
         
         return excel_path
 
 def main():
     """메인 실행 함수"""
-    print("🔮 " + "="*70)
-    print("🔮 Future Traffic Prediction - One Week Forecast")
-    print("🔮 " + "="*70)
+    print(" " + "="*70)
+    print(" Future Traffic Prediction - One Week Forecast")
+    print(" " + "="*70)
     
     # Check for available models
     model_files = {
@@ -558,12 +558,12 @@ def main():
     for model_type, model_path in model_files.items():
         if os.path.exists(model_path):
             available_models[model_type] = model_path
-            print(f"✅ Found {model_type} model: {model_path}")
+            print(f" Found {model_type} model: {model_path}")
         else:
-            print(f"❌ {model_type} model not found: {model_path}")
+            print(f" {model_type} model not found: {model_path}")
     
     if not available_models:
-        print("\n❌ No saved models found! Please train models first.")
+        print("\n No saved models found! Please train models first.")
         return
     
     # Process each available model
@@ -590,17 +590,17 @@ def main():
                 'excel_path': excel_path
             }
             
-            print(f"\n✅ {model_type} prediction completed!")
+            print(f"\n {model_type} prediction completed!")
             
         except Exception as e:
-            print(f"\n❌ Error processing {model_type}: {str(e)}")
+            print(f"\n Error processing {model_type}: {str(e)}")
             import traceback
             traceback.print_exc()
             continue
     
     # Summary
     print("\n" + "="*70)
-    print("📊 PREDICTION SUMMARY")
+    print(" PREDICTION SUMMARY")
     print("="*70)
     
     for model_type, result in results.items():
@@ -609,8 +609,8 @@ def main():
         print(f"  - Total predictions: {len(result['timestamps']):,} intervals")
         print(f"  - Output file: {result['excel_path']}")
     
-    print("\n🎉 Future prediction completed!")
-    print("📁 Check 'future_predictions' folder for results")
+    print("\n Future prediction completed!")
+    print(" Check 'future_predictions' folder for results")
 
 if __name__ == "__main__":
     main()

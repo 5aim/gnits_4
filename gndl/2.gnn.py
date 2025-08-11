@@ -216,14 +216,14 @@ class TrafficGNNTrainer:
         # Initialize scaler
         self.scaler = StandardScaler()
         
-        print(f"🤖 Model loaded on {device}")
+        print(f" Model loaded on {device}")
         
     def load_data(self):
         """Load preprocessed data"""
-        print("📂 Loading preprocessed data...")
+        print(" Loading preprocessed data...")
         
         # Load graph structure
-        print("  🗺️  Loading graph structure...")
+        print("    Loading graph structure...")
         with open(os.path.join(self.data_path, 'graph_structure.pkl'), 'rb') as f:
             graph_data = pickle.load(f)
         
@@ -249,7 +249,7 @@ class TrafficGNNTrainer:
             self.edge_index = torch.empty((2, 0), dtype=torch.long)
         
         # Load temporal sequences
-        print("  📈 Loading temporal sequences...")
+        print("   Loading temporal sequences...")
         with open(os.path.join(self.data_path, 'temporal_sequences.pkl'), 'rb') as f:
             seq_data = pickle.load(f)
         
@@ -258,26 +258,26 @@ class TrafficGNNTrainer:
         self.timestamps = seq_data.get('timestamps', None)
         
         # Load metadata
-        print("  📋 Loading metadata...")
+        print("   Loading metadata...")
         with open(os.path.join(self.data_path, 'metadata.json'), 'r') as f:
             self.metadata = json.load(f)
         
-        print(f"✅ Data loaded:")
-        print(f"   📊 Sequences: {len(self.sequences):,}")
-        print(f"   📐 Sequence shape: {self.sequences.shape}")
-        print(f"   🎯 Target shape: {self.targets.shape}")
-        print(f"   🔗 Graph edges: {self.edge_index.size(1)}")
-        print(f"   📍 Node indices range: 0 to {len(self.target_cross_ids)-1}")
+        print(f" Data loaded:")
+        print(f"    Sequences: {len(self.sequences):,}")
+        print(f"    Sequence shape: {self.sequences.shape}")
+        print(f"    Target shape: {self.targets.shape}")
+        print(f"    Graph edges: {self.edge_index.size(1)}")
+        print(f"    Node indices range: 0 to {len(self.target_cross_ids)-1}")
         
     def prepare_data_splits(self, train_ratio=0.7, val_ratio=0.15, max_samples=None):
         """Split data into train/validation/test sets"""
-        print("🔄 Preparing data splits...")
+        print(" Preparing data splits...")
         
         n_samples = len(self.sequences)
         
         # Limit data size if specified
         if max_samples and n_samples > max_samples:
-            print(f"  📊 Reducing dataset: {n_samples:,} → {max_samples:,} samples")
+            print(f"   Reducing dataset: {n_samples:,} → {max_samples:,} samples")
             indices = np.linspace(0, n_samples-1, max_samples, dtype=int)
             self.sequences = self.sequences[indices]
             self.targets = self.targets[indices]
@@ -297,18 +297,18 @@ class TrafficGNNTrainer:
         y_test = self.targets[val_end:]
         
         # Normalize features
-        print("  📏 Normalizing features...")
+        print("   Normalizing features...")
         X_train_flat = X_train.reshape(-1, X_train.shape[-1])
         self.scaler.fit(X_train_flat)
         
         # Apply normalization
-        print("  🔄 Applying normalization...")
+        print("   Applying normalization...")
         X_train = self._normalize_sequences(X_train)
         X_val = self._normalize_sequences(X_val)
         X_test = self._normalize_sequences(X_test)
         
         # Convert to tensors
-        print("  🧮 Converting to tensors...")
+        print("   Converting to tensors...")
         self.X_train = torch.FloatTensor(X_train).to(self.device)
         self.X_val = torch.FloatTensor(X_val).to(self.device)
         self.X_test = torch.FloatTensor(X_test).to(self.device)
@@ -319,10 +319,10 @@ class TrafficGNNTrainer:
         
         self.edge_index = self.edge_index.to(self.device)
         
-        print(f"✅ Data splits prepared:")
-        print(f"   🚂 Train: {len(X_train):,} samples")
-        print(f"   ✅ Validation: {len(X_val):,} samples")
-        print(f"   🧪 Test: {len(X_test):,} samples")
+        print(f" Data splits prepared:")
+        print(f"    Train: {len(X_train):,} samples")
+        print(f"    Validation: {len(X_val):,} samples")
+        print(f"    Test: {len(X_test):,} samples")
         
     def _normalize_sequences(self, sequences):
         """Normalize sequence data"""
@@ -335,7 +335,7 @@ class TrafficGNNTrainer:
     
     def train(self, epochs=100, batch_size=32, learning_rate=0.001):
         """Train the model"""
-        print(f"🚀 Starting training for {epochs} epochs...")
+        print(f" Starting training for {epochs} epochs...")
         
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=1e-4)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, factor=0.5)
@@ -416,16 +416,16 @@ class TrafficGNNTrainer:
             
             # Early stopping
             if patience_counter >= early_stopping_patience:
-                print(f"\n⏹️  Early stopping at epoch {epoch+1}")
+                print(f"\n  Early stopping at epoch {epoch+1}")
                 break
         
         epoch_progress.close()
-        print("✅ Training completed!")
+        print(" Training completed!")
         return train_losses, val_losses
     
     def evaluate(self):
         """Evaluate model on test set"""
-        print("🧪 Evaluating model on test set...")
+        print(" Evaluating model on test set...")
         
         self.model.eval()
         with torch.no_grad():
@@ -441,7 +441,7 @@ class TrafficGNNTrainer:
         rmse = np.sqrt(mse)
         r2 = r2_score(y_true.flatten(), y_pred.flatten())
         
-        print(f"📊 Test Results:")
+        print(f" Test Results:")
         print(f"   MAE:  {mae:.4f}")
         print(f"   MSE:  {mse:.4f}")
         print(f"   RMSE: {rmse:.4f}")
@@ -456,7 +456,7 @@ class TrafficGNNTrainer:
             'scaler': self.scaler,
             'metadata': self.metadata
         }, path)
-        print(f"💾 Model saved to {path}")
+        print(f" Model saved to {path}")
 
 # ============= Analysis Classes =============
 
@@ -478,11 +478,11 @@ class ComprehensiveAnalyzer:
         for folder in self.folders.values():
             os.makedirs(folder, exist_ok=True)
         
-        print(f"📁 Analysis folders created in {output_folder}/")
+        print(f" Analysis folders created in {output_folder}/")
     
     def quantitative_accuracy_analysis(self, y_true, y_pred, model_name):
         """딥러닝 모델링 정확도 정량적 분석"""
-        print(f"\n📊 Quantitative Accuracy Analysis - {model_name}")
+        print(f"\n Quantitative Accuracy Analysis - {model_name}")
         print("="*60)
         
         # 전체 예측 정확도
@@ -550,12 +550,12 @@ class ComprehensiveAnalyzer:
             for i, (dir_name, metrics) in enumerate(sorted_dirs[-5:]):
                 f.write(f"   {i+1}. {dir_name}: MAE={metrics['MAE']:.4f}, MAPE={metrics['MAPE']:.2f}%\n")
         
-        print(f"✅ Accuracy report saved to {report_path}")
+        print(f" Accuracy report saved to {report_path}")
         return results
     
     def save_predictions_to_excel(self, y_true, y_pred, model_name, timestamps, cross_ids):
         """예측값과 실제값을 Excel로 저장"""
-        print(f"\n💾 Saving predictions to Excel - {model_name}")
+        print(f"\n Saving predictions to Excel - {model_name}")
         print("="*60)
         
         # 데이터 준비
@@ -613,20 +613,20 @@ class ComprehensiveAnalyzer:
             }).round(2)
             direction_summary.to_excel(writer, sheet_name='Direction_Summary')
         
-        print(f"✅ Predictions saved to {excel_path}")
+        print(f" Predictions saved to {excel_path}")
         return df_predictions
 
 # ============= Main Function =============
 
 def main():
     """메인 실행 함수"""
-    print("🚦 " + "="*70)
-    print("🚦 Traffic GNN Model Training & Analysis Pipeline")
-    print("🚦 " + "="*70)
+    print(" " + "="*70)
+    print(" Traffic GNN Model Training & Analysis Pipeline")
+    print(" " + "="*70)
     
     # Check if preprocessed data exists
     if not os.path.exists('gnn_data'):
-        print("❌ Preprocessed data not found. Please run preprocess.py first.")
+        print(" Preprocessed data not found. Please run preprocess.py first.")
         return
     
     # Initialize analyzer
@@ -648,7 +648,7 @@ def main():
     
     for model_name, config in models_config.items():
         print(f"\n{'='*70}")
-        print(f"🚀 Training {model_name} model...")
+        print(f" Training {model_name} model...")
         print(f"{'='*70}")
         
         try:
@@ -690,7 +690,7 @@ def main():
             }
             
             # Perform analysis
-            print(f"\n📊 Performing analysis for {model_name}...")
+            print(f"\n Performing analysis for {model_name}...")
             
             # 1. Quantitative accuracy analysis
             accuracy_results = analyzer.quantitative_accuracy_analysis(y_true, y_pred, model_name)
@@ -701,17 +701,17 @@ def main():
                 trainer.timestamps, trainer.target_cross_ids
             )
             
-            print(f"✅ {model_name} analysis completed!")
+            print(f" {model_name} analysis completed!")
             
         except Exception as e:
-            print(f"❌ Error processing {model_name}: {str(e)}")
+            print(f" Error processing {model_name}: {str(e)}")
             import traceback
             traceback.print_exc()
             continue
     
     # Final summary
     print("\n" + "="*70)
-    print("📊 FINAL RESULTS SUMMARY")
+    print(" FINAL RESULTS SUMMARY")
     print("="*70)
     
     for model_name, result in results.items():
@@ -721,8 +721,8 @@ def main():
         print(f"  RMSE: {result['metrics']['rmse']:.4f}")
         print(f"  R²: {result['metrics']['r2']:.4f}")
     
-    print(f"\n✅ All results saved in: {analyzer.output_folder}/")
-    print("🎉 Analysis pipeline completed!")
+    print(f"\n All results saved in: {analyzer.output_folder}/")
+    print(" Analysis pipeline completed!")
     
     return results
 

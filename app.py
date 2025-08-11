@@ -138,12 +138,78 @@ def sign_up():
 def home():
     return render_template('home.html')
 
+# ========================================================= [ 딥러닝 학습 ]
 
+# @app.route('/gndl-learn-start', methods=['GET'])
+# def deeplearning_learn_start():
+#     try:
+#         logs = []
+        
+#         VENV_PYTHON = os.path.join(os.getcwd(), "venv", "Scripts", "python.exe")
+        
+#         base_dir = os.path.join(os.getcwd(), "gndl")
+#         gnn_data_dir = os.path.join(base_dir, "gnn_data")
+
+#         pkl_files = ["node_features.pkl", "edge_list.pkl", "node_index.pkl"]
+#         pkl_paths = [os.path.join(gnn_data_dir, f) for f in pkl_files]
+
+#         # STEP 1: 전처리 필요 여부 확인
+#         if not all(os.path.exists(p) for p in pkl_paths):
+#             logs.append("🟡 전처리 데이터 없음 → 1.preprocess.py 실행")
+#             result = subprocess.run([VENV_PYTHON, "gndl/1.preprocess.py"], capture_output=True, text=True)
+#             logs.append(result.stdout or result.stderr)
+#         else:
+#             logs.append("✅ 전처리된 데이터가 존재하여 건너뜀")
+
+#         # STEP 2: 학습 모델 파일 체크
+#         model_path = os.path.join(gnn_data_dir, "best_model.pt")
+#         if not os.path.exists(model_path):
+#             logs.append("🟡 모델 없음 → 2.gnn.py 실행")
+#             result = subprocess.run([VENV_PYTHON, "gndl/2.gnn.py"], capture_output=True, text=True)
+#             logs.append(result.stdout or result.stderr)
+#         else:
+#             logs.append("✅ 학습된 모델이 존재하여 건너뜀")
+
+#         # STEP 3: 시각화 결과 확인
+#         visual_path = os.path.join(gnn_data_dir, "visual_result.png")
+#         if not os.path.exists(visual_path):
+#             logs.append("🟡 시각화 없음 → 3.gnn_visual.py 실행")
+#             result = subprocess.run([VENV_PYTHON, "gndl/3.gnn_visual.py"], capture_output=True, text=True)
+#             logs.append(result.stdout or result.stderr)
+#         else:
+#             logs.append("✅ 시각화 결과가 존재하여 건너뜀")
+
+#         # STEP 4: 미래 예측 결과 확인
+#         pred_path = os.path.join(gnn_data_dir, "future_prediction.json")
+#         if not os.path.exists(pred_path):
+#             logs.append("🟡 미래 예측 없음 → 4.future_prediction.py 실행")
+#             result = subprocess.run([VENV_PYTHON, "gndl/4.future_prediction.py"], capture_output=True, text=True)
+#             logs.append(result.stdout or result.stderr)
+#         else:
+#             logs.append("✅ 미래 예측 결과가 존재하여 건너뜀")
+
+#         return jsonify({
+#             "status": "success",
+#             "message": "GNN 딥러닝 전체 파이프라인 실행 완료",
+#             "logs": logs
+#         })
+
+#     except Exception as e:
+#         return jsonify({
+#             "status": "fail",
+#             "message": "❌ GNN 학습 중 오류 발생",
+#             "error": str(e),
+#             "logs": logs
+#         })
 
 
 
 
 # ========================================================= [ 모니터링 1 - 시간대별 교통수요 분석정보 ]
+
+@app.route('/monitoring/visum-hourly-vc', methods=['GET'])
+def visum_hourly_vc():
+    pass
 
 # ========================================================= [ 모니터링 2 - 교통존간 통행정보 ]
 
@@ -369,6 +435,10 @@ def statistics_traffic_flow():
 
 # ========================================================= [ 모니터링 4 - 도로구간별 통행량 정보 ]
 
+@app.route('/monitoring/road-traffic-info', methods=['GET'])
+def road_traffic_info():
+    pass
+
 # ========================================================= [ 모니터링 5 - 교차로별 통행정보 ]
 
 @app.route('/monitoring/node-result', methods=['GET'])
@@ -376,8 +446,6 @@ def node_result_summary():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        
-        video_1 = r"C:/"
 
         # 📌 1. 가장 최신 날짜(YYYYMMDD) 추출
         cursor.execute("""
@@ -605,15 +673,33 @@ def vttm_result_summary():
 
 # ========================================================= [ 신호운영 2 - 지점별 통행정보 ]
 
+@app.route('/signal/vttm-traffic-info', methods=['GET'])
+def vttm_traffic_info():
+    pass
+
 # ========================================================= [ 신호운영 3 - 시간대별 교통혼잡 정보 ]
 
-# ========================================================= [ 신호운영 4 - 교차로별 효과지표 분석정보 - 접근로별 ]
+@app.route('/signal/hourly-congested-info', methods=['GET'])
+def hourly_congested_info_data():
+    pass
+
+def hourly_congested_info_map_data():
+    pass
+
+# ========================================================= [ 신호운영 4 - 교차로별 효과지표 분석정보 ]
 
 @app.route('/signal/node-approach-result', methods=['GET'])
 def node_approach_result():
+    hour_filter = request.args.get('hour')  # '08', '11', '14', '17' 중 하나
+    label = hourly_mapping.get(hour_filter)
+    if not label:
+        return jsonify({
+            "status": "fail",
+            "message": f"유효하지 않은 hour 파라미터입니다: {hour_filter}",
+            "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }), 400
+            
     try:
-        hour_filter = request.args.get('hour')  # '08', '11', '14', '17' 중 하나
-        
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -677,106 +763,98 @@ def node_approach_result():
         grouped_result = {}
 
         for stat_hour, df_hour in df_node_dir.groupby('STAT_HOUR'):
-            
-            # 📌 hour 필터 적용
-            if hour_filter and not stat_hour.endswith(hour_filter):
+            hh = stat_hour[-2:]
+            if hh != hour_filter:
                 continue
-            
-            grouped_result[stat_hour] = {}
 
-            for timeint, df_time in df_hour.groupby('TIMEINT'):
-                timeint_str = str(timeint)
-                grouped_result[stat_hour][timeint_str] = {}
+            grouped_result[label] = {}
 
-                for node_id, df_node in df_time.groupby('NODE_ID'):
-                    node_dict = {}
-                    appr_dict = {}
-                    cross_id = df_node['CROSS_ID'].iloc[0]
-                    sa_no = df_node['SA_NO'].iloc[0]
+            for node_id, df_node_alltime in df_hour.groupby('NODE_ID'):
+                if node_id not in df_node_meta.index:
+                    continue
 
-                    # 전체 교차로 요약 계산용
-                    all_vehs_total = 0
-                    all_delay_sum = 0.0
-                    all_delay_count = 0
+                node_meta = df_node_meta.loc[node_id]
+                node_name = node_meta['NODE_NAME']
+                cross_id = df_node_alltime['CROSS_ID'].iloc[0]
+                sa_no = df_node_alltime['SA_NO'].iloc[0]
 
-                    for appr_id, df_appr in df_node.groupby('APPR_ID'):
-                        appr_id_str = str(int(appr_id))
+                result_dict = {
+                    "CROSS_ID": int(float(cross_id)),
+                    "SA_NO": sa_no,
+                    "CROSS_TYPE": int(float(node_meta['CROSS_TYPE'])),
+                    "INT_TYPE": node_meta['INT_TYPE']
+                }
 
-                        vehs_sum_val = df_appr['VEHS'].sum(skipna=True) or 0
-                        vehs_sum = str(int(round(vehs_sum_val)))
+                hourly_summary = {}
+                all_vehs_total, all_delay_sum, all_delay_count = 0, 0.0, 0
 
-                        # NaN 방지: delay 평균값 구하기
-                        delay_vals = df_appr['DELAY'].dropna().astype(float).tolist()
-                        if delay_vals:
-                            delay_avg_val = sum(delay_vals) / len(delay_vals)
-                            delay_avg = round(delay_avg_val, 1)
-                        else:
-                            delay_avg_val = 0.0
-                            delay_avg = 0.0
+                for appr_id, df_appr in df_node_alltime.groupby('APPR_ID'):
+                    vehs = int(df_appr['VEHS'].sum(skipna=True) or 0)
+                    delay_vals = df_appr['DELAY'].dropna().astype(float).tolist()
+                    delay_avg = round(sum(delay_vals) / len(delay_vals), 1) if delay_vals else 0.0
+                    los = get_los(delay_avg)
 
-                        los = get_los(delay_avg)
+                    all_vehs_total += vehs
+                    all_delay_sum += sum(delay_vals)
+                    all_delay_count += len(delay_vals)
 
-                        # 전체 누적용 (delay 평균 × count → 전체 지연합)
-                        all_vehs_total += int(vehs_sum)
-                        all_delay_sum += sum(delay_vals)  # 안전하게 dropna 후 합
-                        all_delay_count += len(delay_vals)
+                    match = df_appr_meta[(df_appr_meta['NODE_ID'] == node_id) & (df_appr_meta['APPR_ID'] == appr_id)]
+                    appr_name = match.iloc[0]['APPR_NAME'] if not match.empty else "미지정"
 
-                        # 이름 조회
+                    hourly_summary[appr_name] = {
+                        "VEHS": int(vehs),
+                        "DELAY": delay_avg,
+                        "LOS": los
+                    }
+
+                result_dict["TOTAL_VEHS"] = all_vehs_total
+                result_dict["TOTAL_DELAY"] = round(all_delay_sum / all_delay_count, 1) if all_delay_count > 0 else 0.0
+                result_dict["TOTAL_LOS"] = get_los(result_dict["TOTAL_DELAY"])
+                result_dict["hourly"] = hourly_summary
+
+                for timeint, df_time in df_node_alltime.groupby('TIMEINT'):
+                    timeint_str = str(timeint).zfill(2)
+                    timeint_result = {}
+
+                    for appr_id, df_appr_name in df_time.groupby('APPR_ID'):
                         match = df_appr_meta[
-                            (df_appr_meta['NODE_ID'] == node_id) &
+                            (df_appr_meta['NODE_ID'] == node_id) & 
                             (df_appr_meta['APPR_ID'] == appr_id)
                         ]
                         appr_name = match.iloc[0]['APPR_NAME'] if not match.empty else "미지정"
 
-                        appr_dict[appr_id_str] = {
-                            "APPR_NAME": appr_name,
-                            "VEHS": vehs_sum,
-                            "DELAY": delay_avg,
-                            "LOS": los
-                        }
+                        if appr_name not in timeint_result:
+                            timeint_result[appr_name] = {}
 
-                    # 노드 요약 계산
-                    node_dict['CROSS_ID'] = cross_id
-                    node_dict['SA_NO'] = sa_no
+                        for direction, df_dir in df_appr_name.groupby('DIRECTION'):
+                            vehs = int(df_dir['VEHS'].sum(skipna=True) or 0)
+                            delay_vals = df_dir['DELAY'].dropna().astype(float).tolist()
+                            delay_avg = round(sum(delay_vals) / len(delay_vals), 1) if delay_vals else 0.0
+                            los = get_los(delay_avg)
 
-                    if node_id in df_node_meta.index:
-                        cross_type = df_node_meta.loc[node_id, 'CROSS_TYPE']
-                        int_type = df_node_meta.loc[node_id, 'INT_TYPE']
-                        node_name = df_node_meta.loc[node_id, 'NODE_NAME']
+                            timeint_result[appr_name][str(int(direction))] = {
+                                "VEHS": vehs,
+                                "DELAY": delay_avg,
+                                "LOS": los
+                            }
 
-                        # ✅ CROSS_ID 정수 변환
-                        try:
-                            node_dict['CROSS_ID'] = int(cross_id)
-                        except (ValueError, TypeError):
-                            node_dict['CROSS_ID'] = cross_id
+                    result_dict[timeint_str] = timeint_result
 
-                        # ✅ CROSS_TYPE 정수 변환
-                        try:
-                            node_dict['CROSS_TYPE'] = int(cross_type)
-                        except (ValueError, TypeError):
-                            node_dict['CROSS_TYPE'] = cross_type
-
-                        node_dict['NODE_NAME'] = node_name
-                        node_dict['INT_TYPE'] = int_type
-
-                        if all_delay_count > 0:
-                            total_delay_avg = round(all_delay_sum / all_delay_count, 1)
-                        else:
-                            total_delay_avg = 0.0
-
-                        node_dict['TOTAL_VEHS'] = all_vehs_total
-                        node_dict['TOTAL_DELAY'] = total_delay_avg
-                        node_dict['TOTAL_LOS'] = get_los(total_delay_avg)
-
-                    node_dict.update(appr_dict)
-                    grouped_result[stat_hour][timeint_str][str(node_id)] = node_dict
+                grouped_result[label][node_name] = result_dict
+            
+            if label not in grouped_result or not grouped_result[label]:
+                return jsonify({
+                    "status": "fail",
+                    "message": f"{label}에 해당하는 데이터가 없습니다.",
+                    "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }), 404
 
         return app.response_class(
             response=json.dumps({
                 "status": "success",
+                "label": label,
                 "latest_date": latest_date,
-                "data": grouped_result,
-                "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                "data": grouped_result[label],
             }, ensure_ascii=False),
             status=200,
             mimetype='application/json'
@@ -786,11 +864,9 @@ def node_approach_result():
         return jsonify({
             "status": "fail",
             "message": "노드 접근 결과 조회 중 오류 발생",
-            "error": str(e),
-            "timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            "error": str(e)
         }), 500
 
-# ========================================================= [ 신호운영 5 - 교차로별 효과지표 분석정보 - 방향별 ]
 
 
 
@@ -800,13 +876,30 @@ def node_approach_result():
 
 # ========================================================= [ 교통관리 1 - 교통량 패턴비교 분석정보 ]
 
+@app.route('/management/compare-traffic-vol', methods=['GET'])
+def compare_traffic_vol():
+    pass
+
 # ========================================================= [ 교통관리 2 - Deep Learning Progress Overview ]
+
+@app.route('/management/deep-learning-overview', methods=['GET'])
+def deep_learning_overview():
+    pass
 
 # ========================================================= [ 교통관리 3 - SA(Sub Area) 그룹 관리정보 ]
 
+@app.route('/management/sa-group-info', methods=['GET'])
+def congested_info():
+    pass
+
+def sa_info():
+    pass
+
 # ========================================================= [ 교통관리 4 - 혼잡교차로 신호최적화 효과검증 ]
 
-
+@app.route('/management/cross-optimize', methods=['GET'])
+def cross_optimize():
+    pass
 
 
 
