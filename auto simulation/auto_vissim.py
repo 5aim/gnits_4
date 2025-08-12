@@ -334,8 +334,6 @@ class VTTMInfoManager:
 
 # ============================================================================ [ 구간 결과값 DB INSERT ]
 
-# ---------------------------------------------------------------------------- [ 통행비용 추가 필요 ]
-
 def insert_vttm_results_to_db(df_vttm, db_manager):
     
     if db_manager.cursor is None:
@@ -347,8 +345,8 @@ def insert_vttm_results_to_db(df_vttm, db_manager):
             DISTRICT, STAT_HOUR, VTTM_ID,
             FROM_NODE_NAME, TO_NODE_NAME, UPDOWN,
             DISTANCE, VEHS, TRAVEL_TIME,
-            SA_NO, ROAD_NAME, ACTIVE
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            SA_NO, ROAD_NAME, TRAVEL_COST, ACTIVE
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     # NaN을 None으로 대체, 타입 형변환
@@ -379,6 +377,7 @@ def insert_vttm_results_to_db(df_vttm, db_manager):
             clean_value(row.get("TRAVEL_TIME"), "float"),
             clean_value(row.get("SA_NO"), "str"),
             clean_value(row.get("ROAD_NAME"), "str"),
+            clean_value(row.get("TRAVEL_COST"), "float"),
             clean_value(row.get("ACTIVE"), "int")
         ))
 
@@ -808,6 +807,7 @@ class VissimSimulationManager:
             "VEHICLETRAVELTIMEMEASUREMENT\\UPDOWN": "UPDOWN",
             "VEHICLETRAVELTIMEMEASUREMENT\\SA": "SA_NO",
             "VEHICLETRAVELTIMEMEASUREMENT\\ROAD_NAME": "ROAD_NAME",
+            "VEHICLETRAVELTIMEMEASUREMENT\\TRAVELCOST": "TRAVEL_COST",
             "VEHICLETRAVELTIMEMEASUREMENT\\ACTIVE": "ACTIVE"
         }
 
@@ -908,7 +908,7 @@ class VissimSimulationManager:
 
         # 컬럼 정렬
         # 권역, 분석대상일자, 분석대상시간, 구간아이디, 시점교차로명, 종점교차로명, 상하행구분, 거리(m), 통행량, 시간(초), SA번호, 대로명, 활성화여부
-        desired_vttm_cols = ["DISTRICT", "STAT_HOUR", "TIMEINT", "VTTM_ID", "FROM_NODE_NAME", "TO_NODE_NAME", "UPDOWN", "DISTANCE", "VEHS", "TRAVEL_TIME", "SA_NO", "ROAD_NAME", "ACTIVE"]
+        desired_vttm_cols = ["DISTRICT", "STAT_HOUR", "TIMEINT", "VTTM_ID", "FROM_NODE_NAME", "TO_NODE_NAME", "UPDOWN", "DISTANCE", "VEHS", "TRAVEL_TIME", "SA_NO", "ROAD_NAME", "TRAVEL_COST", "ACTIVE"]
         df_vttm = df_vttm[[col for col in desired_vttm_cols if col in df_vttm.columns]]
         
         # ------------------------------------------------------------ 교차로 방향별 결과값 / 교차로 결과값 엑셀 저장
