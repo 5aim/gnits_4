@@ -527,6 +527,25 @@ def statistics_traffic_flow():
         # rule_date = resolve_dataset_date(now_kst)  # ▶ 배포 시 이 줄로 복원
         rule_date = "20250701"  # ▶ 테스트용 강제 날짜(배포 시 삭제/주석)
         hours_filter = parse_hours_param((request.args.get('hours') or '').strip())
+        
+        map_center_coordinates = [
+            {
+                "district":"교동지구",
+                "coordinates": [128.874273, 37.765208]
+            },
+            {
+                "district":"송정동",
+                "coordinates": [128.924538, 37.771808]
+            },
+            {
+                "district":"도심",
+                "coordinates": [128.897176, 37.755575]
+            },
+            {
+                "district":"아레나",
+                "coordinates": [128.891529, 37.787484]
+            }
+        ]
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -668,6 +687,7 @@ def statistics_traffic_flow():
         payload = {
             "status": "success",
             "target_date": rule_date,
+            "map_center_coordinates": map_center_coordinates,
             "data": hour_blocks,
             "meta": {
                 "coord_order": "latlon",
