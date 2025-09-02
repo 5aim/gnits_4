@@ -1,13 +1,18 @@
 import sys
 import os
 import re
+import time
+import random
 import shutil
 import pyodbc
 import fnmatch
 import datetime
+import pythoncom
 import pywintypes
 import pandas as pd
 import win32com.client as com
+from win32com.client import gencache
+
 from decimal import Decimal
 from dotenv import load_dotenv
 from contextlib import redirect_stdout
@@ -49,7 +54,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 current_datetime = datetime.datetime.now()
 
 # >> 아래 변수는 테스트를 위해 수동으로 현재시간을 지정하는 부분입니다. 현재 시각을 수동 지정하려면 아래 주석을 해제하세요.
-current_datetime = datetime.datetime.strptime("2025070209", "%Y%m%d%H")
+current_datetime = datetime.datetime.strptime("2025090201", "%Y%m%d%H")
 
 # 전날 날짜 계산
 target_date = (current_datetime - datetime.timedelta(days=1)).strftime("%Y%m%d")
@@ -96,15 +101,15 @@ class Config:
 
         self.vissim_paths = self._load_vissim_paths()
 
-    # 아레나, 송정동, 도심, 교동 네트워크 경로
+    # 경포, 송정동, 도심, 교동 네트워크 경로
     
     def _load_vissim_paths(self):
         base_path = r"C:\Digital Twin Simulation Network\VISSIM"
         file_list = [
-            "아레나.inpx",
-            "송정동.inpx",
-            "도심(강릉역).inpx",
-            "교동지구.inpx"
+            "gyeongpo.inpx",
+            "songjung.inpx",
+            "downtown.inpx",
+            "gyodong.inpx"
         ]
         return {
             os.path.splitext(name)[0]: os.path.join(base_path, name)
@@ -137,6 +142,7 @@ class DatabaseManager:
         try:
             if self.config.env == "test":
                 db = self.config.db_config["test"]
+                print(">>>>> ✅ 엔제로 데이터베이스 연결")
                 return pyodbc.connect(
                     f"DRIVER={db['driver']};"
                     f"SERVER={db['server']};"
@@ -147,6 +153,7 @@ class DatabaseManager:
                 )
             else:
                 db = self.config.db_config["prod"]
+                print(">>>>> ✅ 강릉 데이터베이스 연결")
                 return pyodbc.connect(
                     f"DSN={db['dsn']};"
                     f"UID={db['uid']};"
@@ -342,11 +349,8 @@ def insert_vttm_results_to_db(df_vttm, db_manager):
 
     insert_query = """
         INSERT INTO VTTM_RESULT (
-            DISTRICT, STAT_HOUR, VTTM_ID,
-            FROM_NODE_NAME, TO_NODE_NAME, UPDOWN,
-            DISTANCE, VEHS, TRAVEL_TIME,
-            SA_NO, ROAD_NAME, TRAVEL_COST, ACTIVE
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            STAT_HOUR, VTTM_ID, DISTANCE, VEHS, TRAVEL_TIME
+        ) VALUES (?, ?, ?, ?, ?)
     """
 
     # NaN을 None으로 대체, 타입 형변환
@@ -366,19 +370,11 @@ def insert_vttm_results_to_db(df_vttm, db_manager):
     insert_data = []
     for _, row in df_vttm.iterrows():
         insert_data.append((
-            clean_value(row.get("DISTRICT"), "int"),
             clean_value(row.get("STAT_HOUR"), "str"),
             clean_value(row.get("VTTM_ID"), "str"),
-            clean_value(row.get("FROM_NODE_NAME"), "str"),
-            clean_value(row.get("TO_NODE_NAME"), "str"),
-            clean_value(row.get("UPDOWN"), "int"),
             clean_value(row.get("DISTANCE"), "float"),
             clean_value(row.get("VEHS"), "int"),
-            clean_value(row.get("TRAVEL_TIME"), "float"),
-            clean_value(row.get("SA_NO"), "str"),
-            clean_value(row.get("ROAD_NAME"), "str"),
-            clean_value(row.get("TRAVEL_COST"), "float"),
-            clean_value(row.get("ACTIVE"), "int")
+            clean_value(row.get("TRAVEL_TIME"), "float")
         ))
 
     try:
@@ -399,10 +395,8 @@ def insert_node_results_to_db(df_node: pd.DataFrame, db_manager):
 
     insert_query = """
         INSERT INTO NODE_RESULT (
-            DISTRICT, STAT_HOUR, TIMEINT,
-            NODE_ID, SA_NO,
-            QLEN, VEHS, DELAY, STOPS
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            STAT_HOUR, TIMEINT, NODE_ID, QLEN, VEHS, DELAY, STOPS
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
     """
 
     def clean_value(val, target_type):
@@ -421,11 +415,9 @@ def insert_node_results_to_db(df_node: pd.DataFrame, db_manager):
     insert_data = []
     for _, row in df_node.iterrows():
         insert_data.append((
-            clean_value(row.get("DISTRICT"), "int"),
             clean_value(row.get("STAT_HOUR"), "str"),
             clean_value(row.get("TIMEINT"), "str"),
             clean_value(row.get("NODE_ID"), "str"),
-            clean_value(row.get("SA_NO"), "str"),
             clean_value(row.get("QLEN"), "float"),
             clean_value(row.get("VEHS"), "int"),
             clean_value(row.get("DELAY"), "float"),
@@ -450,11 +442,8 @@ def insert_node_dir_results_to_db(df_dir_node: pd.DataFrame, db_manager):
 
     insert_query = """
         INSERT INTO NODE_DIR_RESULT (
-            DISTRICT, STAT_HOUR, TIMEINT,
-            NODE_ID, CROSS_ID, NODE_NAME,
-            SA_NO, APPR_ID, DIRECTION,
-            QLEN, VEHS, DELAY, STOPS
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            STAT_HOUR, TIMEINT, NODE_ID, SA_NO, APPR_ID, DIRECTION, QLEN, VEHS, DELAY, STOPS
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     def clean_value(val, target_type):
@@ -473,12 +462,9 @@ def insert_node_dir_results_to_db(df_dir_node: pd.DataFrame, db_manager):
     insert_data = []
     for _, row in df_dir_node.iterrows():
         insert_data.append((
-            clean_value(row.get("DISTRICT"), "int"),
             clean_value(row.get("STAT_HOUR"), "str"),
             clean_value(row.get("TIMEINT"), "str"),
             clean_value(row.get("NODE_ID"), "str"),
-            clean_value(row.get("CROSS_ID"), "int"),
-            clean_value(row.get("NODE_NAME"), "str"),
             clean_value(row.get("SA_NO"), "str"),
             clean_value(row.get("APPR_ID"), "int"),
             clean_value(row.get("DIRECTION"), "int"),
@@ -496,8 +482,95 @@ def insert_node_dir_results_to_db(df_dir_node: pd.DataFrame, db_manager):
         print("⛔ NODE_DIR_RESULT 삽입 오류:", e)
         db_manager.conn.rollback()
 
+# ============================================================================ [ Data Collection 결과값 DB INSERT ]
 
+def insert_dc_to_db(dc: pd.DataFrame, db_manager):
+    
+    if db_manager.cursor is None:
+        print("⛔ DB 커서가 유효하지 않습니다.")
+        return
+    
+    insert_query = """
+            INSERT INTO DC_RESULT (
+            DISTRICT, STAT_HOUR, DC_ID, DISTANCE, VEHS, SPEED
+            ) VALUES (?, ?, ?, ?, ?, ?)
+    """
+    
+    def clean_value(val, target_type):
+        if pd.isna(val):
+            return None
+        try:
+            if target_type == "int":
+                return int(val)
+            elif target_type == "float":
+                return float(val)
+            elif target_type == "str":
+                return str(val)
+        except:
+            return None
+    
+    insert_data = []
+    for _, row in dc.iterrows():
+        insert_data.append((
+            clean_value(row.get("DISTRICT"), "int"),
+            clean_value(row.get("STAT_HOUR"), "str"),
+            clean_value(row.get("DC_ID"), "int"),
+            clean_value(row.get("DISTANCE"), "float"),
+            clean_value(row.get("VEHS"), "int"),
+            clean_value(row.get("SPEED"), "float")
+        ))
 
+    try:
+        db_manager.cursor.executemany(insert_query, insert_data)
+        db_manager.conn.commit()
+        print(f"✅ DC_RESULT에 {len(insert_data)}건 삽입 완료")
+    except Exception as e:
+        print("⛔ DC_RESULT 삽입 오류:", e)
+        db_manager.conn.rollback()
+
+# ============================================================================ [ Network Performance 결과값 DB INSERT ]
+
+def insert_np_to_db(np: pd.DataFrame, db_manager):
+    
+    if db_manager.cursor is None:
+        print("⛔ DB 커서가 유효하지 않습니다.")
+        return
+    
+    insert_query = """
+            INSERT INTO NP_RESULT (
+            DISTRICT, STAT_HOUR, VEHS, COST
+            ) VALUES (?, ?, ?, ?)
+    """
+    
+    def clean_value(val, target_type):
+        if pd.isna(val):
+            return None
+        try:
+            if target_type == "int":
+                return int(val)
+            elif target_type == "float":
+                return float(val)
+            elif target_type == "str":
+                return str(val)
+        except:
+            return None
+    
+    insert_data = []
+    for _, row in np.iterrows():
+        insert_data.append((
+            clean_value(row.get("DISTRICT"), "int"),
+            clean_value(row.get("STAT_HOUR"), "str"),
+            clean_value(row.get("VEHS"), "int"),
+            clean_value(row.get("COST"), "float")
+        ))
+
+    try:
+        db_manager.cursor.executemany(insert_query, insert_data)
+        db_manager.conn.commit()
+        print(f"✅ NP_RESULT에 {len(insert_data)}건 삽입 완료")
+    except Exception as e:
+        print("⛔ NP_RESULT 삽입 오류:", e)
+        db_manager.conn.rollback()
 
 
 
@@ -512,76 +585,125 @@ class VissimSimulationManager:
         self.vissim = None
         self.paths = config.vissim_paths
         self.db = db_manager
+        self._com_initialized = False
+    
+    # --- VISSIM COM 객체를 "성공할 때까지" 생성하는 유틸
+    
+    def _init_com(self):
+        """STA로 COM 초기화 (여러 번 호출해도 안전하도록 가드)"""
+        if not self._com_initialized:
+            # COINIT_APARTMENTTHREADED = STA
+            pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+            self._com_initialized = True
+            print("🔧 COM initialized (STA)")
+
+    def _uninit_com(self):
+        """COM 해제 (참조 카운트 맞추기)"""
+        if self._com_initialized:
+            pythoncom.CoUninitialize()
+            self._com_initialized = False
+            print("🧹 COM uninitialized")
+    
+    def _ensure_vissim(self,
+                       prog_ids=("Vissim.Vissim.22",),
+                       max_attempts=8,
+                       base_delay=1.5,
+                       hard_timeout_sec=90) -> bool:
+        self._init_com()
+        start = time.time()
+        last_err = None
+
+        for attempt in range(1, max_attempts + 1):
+            if time.time() - start > hard_timeout_sec:
+                print(f"⛔ 하드 타임아웃 초과({hard_timeout_sec}s)")
+                break
+
+            for prog in prog_ids:
+                try:
+                    # 1) Dispatch
+                    self.vissim = com.Dispatch(prog)
+                    print(f"🔵 VISSIM COM 생성 성공: {prog} (attempt={attempt})")
+                    return True
+                except pywintypes.com_error as e1:
+                    last_err = e1
+                    # 2) EnsureDispatch 폴백
+                    try:
+                        self.vissim = gencache.EnsureDispatch(prog)
+                        print(f"🔵 VISSIM COM 생성 성공(EnsureDispatch): {prog} (attempt={attempt})")
+                        return True
+                    except Exception as e2:
+                        last_err = e2
+
+            sleep_s = min(base_delay * (2 ** (attempt - 1)), 10.0) + random.uniform(0.0, 0.5)
+            print(f"🔁 재시도 대기: {sleep_s:.1f}s (attempt={attempt}/{max_attempts})")
+            time.sleep(sleep_s)
+
+        print(f"⛔ 최종 실패: {repr(last_err)}")
+        self.vissim = None
+        return False
 
     # ============================================================================ [ 연계 - 실행 - 추출 - 저장 - 종료 ]
 
     def run_full_simulation(self, area):
         global target_stat_hours
 
-        district_map = {
-            "교동지구": 1,
-            "송정동": 2,
-            "도심(강릉역)": 3,
-            "아레나": 4
-        }
-
         print(f"🔵 vissim 시뮬레이션에서 건네받은 분석대상 일시 : {target_date}")
+        print(f"🔵 vissim 시뮬레이션에서 건네받은 분석대상 지구 : {area}")
         path = self.paths.get(area)
 
         if not path or not os.path.isfile(path):
             print(f"⛔ [ 경고 ] {area} 파일 없음: {path}")
             return
 
-        # VISSIM 객체 생성 (한 번만)
-        try:
-            self.vissim = com.Dispatch("Vissim.Vissim.22")
-            print("🔵 VISSIM COM 객체 생성")
-        except pywintypes.com_error:
-            print("⛔ [ 오류 ] VISSIM 객체 생성 실패")
-            self.vissim = None
+        # ✅ 반드시 생성될 때까지 시도
+        if not self._ensure_vissim(prog_ids=("Vissim.Vissim.22",), max_attempts=8, base_delay=1.5, hard_timeout_sec=90):
+            print("⛔ VISSIM 객체를 생성하지 못해 시뮬레이션 스킵")
+            self._uninit_com()
             return
 
-        # ------------------------------------------------------------ 반복된 시뮬레이션 루프
-        for idx, (hour_key, traffic_list) in enumerate(db.traffic_data_by_hour.items()):
-            try:
-                idx = peak_hours.index(hour_key)
-                full_stat_hour = target_stat_hours[idx]
-            except ValueError:
-                print(f"⛔ [ 오류 ] 시간대 {hour_key}는 peak_hours에 없습니다.")
-                continue
+        try:
+            # ------------------------------------------------------------ 반복된 시뮬레이션 루프
+            for idx, (hour_key, traffic_list) in enumerate(self.db.traffic_data_by_hour.items()):
+                try:
+                    idx = peak_hours.index(hour_key)
+                    full_stat_hour = target_stat_hours[idx]
+                except ValueError:
+                    print(f"⛔ [ 오류 ] 시간대 {hour_key}는 peak_hours에 없습니다.")
+                    continue
 
-            print(f"🔵 [ {area} ] ( {full_stat_hour} ) 시뮬레이션 시작 ===")
+                print(f"🔵 [ {area} ] ( {full_stat_hour} ) 시뮬레이션 시작 ===")
 
-            # [1] 이전 결과 삭제
-            self.cleanup_att_files(area)
+                # [1] 이전 결과 삭제
+                self.cleanup_att_files(area)
 
-            # [2] 네트워크 파일 다시 로드 (상태 초기화)
-            try:
-                self.vissim.LoadNet(path, False)
-                print(f"🔁 [ 네트워크 재로드 완료 ] {area} → {path}")
-            except pywintypes.com_error:
-                print(f"⛔ [ 오류 ] 네트워크 재로드 실패: {path}")
-                continue
+                # [2] 네트워크 파일 다시 로드 (최대 3회 소프트 재시도)
+                for load_try in range(1, 4):
+                    try:
+                        self.vissim.LoadNet(path, False)
+                        print(f"🔁 [ 네트워크 재로드 완료 ] {area} → {path} (try={load_try})")
+                        break
+                    except pywintypes.com_error as e:
+                        print(f"⚠️ 재로드 실패(try={load_try}): {repr(e)}")
+                        time.sleep(1.0 * load_try)
+                else:
+                    print(f"⛔ [ 오류 ] 네트워크 재로드 반복 실패: {path}")
+                    continue
 
-            # [3] 교통량 연계 → 시뮬레이션 실행 → 결과 추출
-            self.apply_traffic_data(traffic_list)
-            self.run_simulation()
-            df_node, df_dir_node, df_vttm = self.extract_results(stat_hour=full_stat_hour, area_name=area)
+                # [3] 연계 → 실행 → 추출
+                self.apply_traffic_data(traffic_list)
+                self.run_simulation()
+                df_node, df_dir_node, df_vttm, dc, np = self.extract_results(stat_hour=full_stat_hour, area_name=area)
 
-            # [4] 지역코드 부여
-            district_code = district_map.get(area)
-            df_node["DISTRICT"] = district_code
-            df_dir_node["DISTRICT"] = district_code
-            df_vttm["DISTRICT"] = district_code
+                # [5] DB 저장
+                self.save_results((df_dir_node, df_node, df_vttm, dc, np), area, hour_key)
 
-            # [5] 결과 DB 저장
-            self.save_results((df_dir_node, df_node, df_vttm), area, hour_key)
-
-            # [6] 결과 파일 삭제
-            self.cleanup_att_files(area)
-
-        # ------------------------------------------------------------ 종료
-        self.close_simulation()
+                # [6] 결과 파일 삭제
+                self.cleanup_att_files(area)
+                
+        finally:
+            # ------------------------------------------------------------ 종료
+            self.close_simulation()
+            self._uninit_com()  # ✅ COM 해제
 
     # ============================================================================ [ 연계 - vehicle input / static route ]
 
@@ -624,7 +746,7 @@ class VissimSimulationManager:
                 if vi_vol is None:
                     continue  # 해당 방향 데이터 없음
 
-                print(f"[ Vehicle Input ] (InputNo = {no[1]}) (NodeID = {node_id[1]}) (LinkID = {link_id[1]}) (Volume = {vi_vol})")
+                # print(f"[ Vehicle Input ] (InputNo = {no[1]}) (NodeID = {node_id[1]}) (LinkID = {link_id[1]}) (Volume = {vi_vol})")
 
                 # 교통량 입력
                 vi = self.vissim.Net.VehicleInputs.ItemByKey(no[1])
@@ -662,7 +784,7 @@ class VissimSimulationManager:
                         if sr_vol is None:
                             continue  # 해당 방향에 대해 교통량 없음
 
-                        print(f"[ Static Route ] (NodeID = {sr_node_id}) (TurnID = {sr_turn_id}) (Volume= {sr_vol})")
+                        # print(f"[ Static Route ] (NodeID = {sr_node_id}) (TurnID = {sr_turn_id}) (Volume= {sr_vol})")
                         
                         route.SetAttValue("RelFlow(1)", sr_vol)
                         route.SetAttValue("RelFlow(2)", sr_vol)
@@ -673,6 +795,9 @@ class VissimSimulationManager:
     # ============================================================================ [ 실행 - simulation run ]
 
     def run_simulation(self):
+        
+        End_of_simulation = 4200
+        self.vissim.Simulation.SetAttValue('SimPeriod', End_of_simulation) # 시뮬레이션 4200초
         self.vissim.Graphics.CurrentNetworkWindow.SetAttValue("QuickMode", 1)
         self.vissim.Simulation.SetAttValue('UseMaxSimSpeed', True)
         self.vissim.Simulation.RunContinuous()
@@ -711,10 +836,9 @@ class VissimSimulationManager:
             pattern = re.compile(rf"{re.escape(base_name)}_{re.escape(result_type)}_(\d+)\.att")
             max_idx = 0
             for file in os.listdir(target_folder):
-                match = pattern.match(file)
-                if match:
-                    idx = int(match.group(1))
-                    max_idx = max(max_idx, idx)
+                m = pattern.match(file)
+                if m:
+                    max_idx = max(max_idx, int(m.group(1)))
             return f"{max_idx:03d}" if max_idx > 0 else None
 
         # ------------------------------------------------------------ 결과값 df로 할당하기
@@ -736,34 +860,36 @@ class VissimSimulationManager:
                 print(f"⛔ 인코딩 실패: {path}")
                 return pd.DataFrame()
 
+            # 보통 '$'가 들어간 라인이 2번 이상 존재, 두 번째가 헤더
             dollar_lines = [i for i, line in enumerate(lines) if "$" in line]
             if len(dollar_lines) < 2:
-                print(f"⛔ 포맷 이상: {path}")
+                print(f"⛔ 포맷 이상(헤더 탐지 실패): {path}")
                 return pd.DataFrame()
 
             header_idx = dollar_lines[1]
-            columns = lines[header_idx].replace('$MOVEMENTEVALUATION:', '').replace('$VEHICLETRAVELTIMEMEASUREMENTEVALUATION:', '').strip().split(';')
+            header_line = lines[header_idx]
+
+            # ✅ 핵심: '$'부터 첫 ':'까지 제거 → 어떤 헤더 타입이 와도 동작
+            # 예) $DATACOLLECTIONMEASUREMENTEVALUATION:SIMRUN;TIMEINT;... → SIMRUN;TIMEINT;...
+            header_line = re.sub(r"^\$[^:]*:", "", header_line).strip()
+
+            columns = [c.strip() for c in header_line.split(';') if c.strip()]
             data_lines = lines[header_idx + 1:]
 
+            # 데이터 부분 파싱
             rows = []
             for line in data_lines:
                 if not line.strip():
                     continue
-                values = line.strip().split(';')
-                values = values[:len(columns)] + [''] * (len(columns) - len(values))
+                values = [v.strip() for v in line.split(';')]
+                # 열 개수 보정
+                if len(values) < len(columns):
+                    values += [''] * (len(columns) - len(values))
+                elif len(values) > len(columns):
+                    values = values[:len(columns)]
                 rows.append(dict(zip(columns, values)))
 
             df = pd.DataFrame(rows)
-
-            # 인코딩 깨진 열 자동 복구 시도 (한글 포함 추정 열 대상)
-            for col in df.columns:
-                try:
-                    if df[col].str.contains("[가-힣]").any():
-                        continue  # 이미 한글 정상
-                    df[col] = df[col].apply(lambda x: x.encode('latin1').decode('cp949') if isinstance(x, str) else x)
-                except Exception:
-                    continue
-
             return df
 
         # ------------------------------------------------------------ 각 구역 결과값 처리
@@ -776,15 +902,27 @@ class VissimSimulationManager:
         # 파일 경로 정의
         node_file = os.path.join(target_folder, f"{area_name}_Node Results_{latest_index}.att")
         vttm_file = os.path.join(target_folder, f"{area_name}_Vehicle Travel Time Results_{latest_index}.att")
+        dc_file = os.path.join(target_folder, f"{area_name}_Data Collection Results_{latest_index}.att")
+        np_file = os.path.join(target_folder, f"{area_name}_Vehicle Network Performance Evaluation Results_{latest_index}.att")
 
         # 파일 읽기
         df_dir_node = read_att_file(node_file)
         df_vttm = read_att_file(vttm_file)
+        dc = read_att_file(dc_file)
+        np = read_att_file(np_file)
 
         print(f"✅ {area_name} - Node Results ({df_dir_node.shape[0]}행)")
         print(f"✅ {area_name} - Travel Time Results ({df_vttm.shape[0]}행)")
+        print(f"✅ {area_name} - Data Collection Results ({dc.shape[0]}행)")
+        print(f"✅ {area_name} - Vehicle Network Performance Evaluation Results ({np.shape[0]}행)")
 
         # 컬럼명 매핑
+        district_map = {
+            "gyodong": 1,
+            "songjung": 2,
+            "downtown": 3,
+            "gyeongpo": 4
+        }
         timeint_map = {
             '600-1500': '00-15',
             '1500-2400': '15-30',
@@ -807,13 +945,25 @@ class VissimSimulationManager:
             "VEHICLETRAVELTIMEMEASUREMENT\\UPDOWN": "UPDOWN",
             "VEHICLETRAVELTIMEMEASUREMENT\\SA": "SA_NO",
             "VEHICLETRAVELTIMEMEASUREMENT\\ROAD_NAME": "ROAD_NAME",
-            "VEHICLETRAVELTIMEMEASUREMENT\\TRAVELCOST": "TRAVEL_COST",
             "VEHICLETRAVELTIMEMEASUREMENT\\ACTIVE": "ACTIVE"
+        }
+        
+        data_col_map = {
+            "DATACOLLECTIONMEASUREMENT": "DC_ID",
+            "DIST(ALL)": "DISTANCE",
+            "VEHS(ALL)": "VEHS",
+            "SPEEDAVGARITH(ALL)": "SPEED",
+        }
+        np_col_map = {
+            "VEHACT(ALL)": "VEHS",
+            "TRAVELCOST": "COST"
         }
 
         # 컬럼명 변경
         df_dir_node.rename(columns=node_col_map, inplace=True)
         df_vttm.rename(columns=vttm_col_map, inplace=True)
+        dc.rename(columns=data_col_map, inplace=True)
+        np.rename(columns=np_col_map, inplace=True)
 
         # ------------------------------------------------------------ 교차로 & 교차로 방향별 결과값 가공
 
@@ -824,16 +974,15 @@ class VissimSimulationManager:
             df_dir_node = df_dir_node.merge(df_node_dir_info, on="MOVEMENT", how="left")
             print("✅ DIRECTION, APPR_ID 병합 완료")
             
-            unmatched = df_dir_node[~df_dir_node["MOVEMENT"].isin(df_node_dir_info["MOVEMENT"])]
-            print("✅ 병합되지 않은 MOVEMENT 값 전체 목록:")
-            print(unmatched["MOVEMENT"].unique().tolist())
+            unmatched = df_dir_node[df_dir_node["MOVEMENT"].isin(df_node_dir_info["MOVEMENT"])]
+            # print("✅ 병합되지 않은 MOVEMENT 값 전체 목록:")
+            # print(unmatched["MOVEMENT"].unique().tolist())
         else:
             print("⛔ 방향 정보 병합 스킵 (데이터 없음)")
 
         # 공통 가공
         df_dir_node["STAT_HOUR"] = stat_hour
         df_dir_node["TIMEINT"] = df_dir_node["TIMEINT"].map(timeint_map).fillna(df_dir_node["TIMEINT"])
-        df_dir_node["DISTRICT"] = area_name
         df_dir_node = df_dir_node[df_dir_node["NODE_ID"].notna() & (df_dir_node["NODE_ID"] != "")]
         df_dir_node.drop(columns=[col for col in ["SIMRUN"] if col in df_dir_node.columns], inplace=True)
 
@@ -844,7 +993,7 @@ class VissimSimulationManager:
         
         # 컬럼 정렬
         # 권역, 분석대상일자, 분석대상시간, 표준노드아이디, SA번호, 방향기준값, 대기행렬, 통행량, 지체시간(초), 정지횟수
-        base_cols = ["DISTRICT", "STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "MOVEMENT", "QLEN", "VEHS", "DELAY", "STOPS"]
+        base_cols = ["STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "MOVEMENT", "QLEN", "VEHS", "DELAY", "STOPS"]
         # 접근로방향(시계방향값), 우직좌(1, 2, 3)
         dir_extra_cols = ["APPR_ID", "DIRECTION"]
 
@@ -862,7 +1011,7 @@ class VissimSimulationManager:
             df_dir_node[col] = pd.to_numeric(df_dir_node[col], errors='coerce')
 
         # [3] 그룹 기준 정의
-        group_cols = ["DISTRICT", "STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "APPR_ID", "DIRECTION"]
+        group_cols = ["STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "APPR_ID", "DIRECTION"]
 
         # [4] QLEN, DELAY, STOPS은 평균, VEHS는 합계 처리
         df_dir_node = (
@@ -880,10 +1029,6 @@ class VissimSimulationManager:
         df_dir_node["QLEN"] = df_dir_node["QLEN"].round(2)
         df_dir_node["DELAY"] = df_dir_node["DELAY"].round(2)
         df_dir_node["STOPS"] = df_dir_node["STOPS"].round(2)
-
-        # [6] MOVEMENT 컬럼 제거 (존재 시)
-        if "MOVEMENT" in df_dir_node.columns:
-            df_dir_node.drop(columns=["MOVEMENT"], inplace=True)
         
         # ------------------------------------------------------------ 구간 결과값 가공
         
@@ -891,7 +1036,6 @@ class VissimSimulationManager:
         df_vttm = df_vttm[df_vttm["ACTIVE"] == str(1)].copy()
         
         df_vttm["STAT_HOUR"] = stat_hour
-        df_vttm["DISTRICT"] = area_name
         
         # 필요 없는 컬럼 제거
         df_vttm.drop(columns=[col for col in ["SIMRUN", "VEHICLETRAVELTIMEMEASUREMENT", "TIMEINT"] if col in df_vttm.columns], inplace=True)
@@ -902,28 +1046,56 @@ class VissimSimulationManager:
 
         if not df_vttm_info.empty:
             df_vttm = df_vttm.merge(df_vttm_info, on="VTTM_ID", how="left")
-            print("🔵 구간 노드 정보 병합 완료")
+            print("✅ 구간 노드 정보 병합 완료")
         else:
             print("🔵 구간 노드 정보 병합 스킵 (데이터 없음)")
 
         # 컬럼 정렬
         # 권역, 분석대상일자, 분석대상시간, 구간아이디, 시점교차로명, 종점교차로명, 상하행구분, 거리(m), 통행량, 시간(초), SA번호, 대로명, 활성화여부
-        desired_vttm_cols = ["DISTRICT", "STAT_HOUR", "TIMEINT", "VTTM_ID", "FROM_NODE_NAME", "TO_NODE_NAME", "UPDOWN", "DISTANCE", "VEHS", "TRAVEL_TIME", "SA_NO", "ROAD_NAME", "TRAVEL_COST", "ACTIVE"]
+        desired_vttm_cols = ["STAT_HOUR", "TIMEINT", "VTTM_ID", "FROM_NODE_NAME", "TO_NODE_NAME", "UPDOWN", "DISTANCE", "VEHS", "TRAVEL_TIME", "SA_NO", "ROAD_NAME", "ACTIVE"]
         df_vttm = df_vttm[[col for col in desired_vttm_cols if col in df_vttm.columns]]
         
+        # ------------------------------------------------------------ Data Collection 컬럼 제거
+        district_code = district_map.get(area)
+        
+        dc.drop(columns=[c for c in ["DATACOLLECTIONMEASUREMENTEVALUATION:SIMRUN", "TIMEINT"] if c in dc.columns], inplace=True)
+        dc["STAT_HOUR"] = stat_hour
+        dc["DISTRICT"] = district_code
+        
+        # ------------------------------------------------------------ Network Performance 컬럼 제거
+        # DISTRICT, STAT_HOUR, VEHS, COST
+        
+        np.drop(columns=[c for c in ["VEHICLENETWORKPERFORMANCEMEASUREMENTEVALUATION:SIMRUN", "TIMEINT"] if c in np.columns], inplace=True)
+        np["STAT_HOUR"] = stat_hour
+        np["DISTRICT"] = district_code
+        np.drop(columns=["SIMRUN"], errors="ignore", inplace=True)
+        
         # ------------------------------------------------------------ 교차로 방향별 결과값 / 교차로 결과값 엑셀 저장
+        
+        output_dir = os.path.join(target_folder, "results_csv")
+        os.makedirs(output_dir, exist_ok=True)
 
-        return df_node.copy(), df_dir_node.copy(), df_vttm.copy()
+        df_node.to_csv(os.path.join(output_dir, f"{area_name}_{stat_hour}_node.csv"), index=False, encoding="utf-8-sig")
+        df_dir_node.to_csv(os.path.join(output_dir, f"{area_name}_{stat_hour}_dir_node.csv"), index=False, encoding="utf-8-sig")
+        df_vttm.to_csv(os.path.join(output_dir, f"{area_name}_{stat_hour}_vttm.csv"), index=False, encoding="utf-8-sig")
+        dc.to_csv(os.path.join(output_dir, f"{area_name}_{stat_hour}_dc.csv"), index=False, encoding="utf-8-sig")
+        np.to_csv(os.path.join(output_dir, f"{area_name}_{stat_hour}_np.csv"), index=False, encoding="utf-8-sig")
+
+        print(f"✅ CSV 저장 완료 → {output_dir}")
+
+        return df_node.copy(), df_dir_node.copy(), df_vttm.copy(), dc.copy(), np.copy()
 
     # ============================================================================ [ 저장 ]
 
     def save_results(self, result, area_name, hour_key):
 
-        df_dir_node, df_node, df_vttm = result
+        df_dir_node, df_node, df_vttm, dc, np = result
 
         insert_vttm_results_to_db(df_vttm, self.db) # 구간 결과값 DB INSERT
         insert_node_results_to_db(df_node, self.db) # 교차로 결과값 DB INSERT
         insert_node_dir_results_to_db(df_dir_node, self.db) # 교차로 방향별 결과값 DB INSERT
+        insert_dc_to_db(dc, self.db) # 교차로 방향별 결과값 DB INSERT
+        insert_np_to_db(np, self.db) # 교차로 방향별 결과값 DB INSERT
         
         print(f"✅ [ DB 저장 완료 ] {area_name}-{hour_key} 결과 DB 저장 또는 파일 기록")
 
@@ -992,10 +1164,9 @@ if __name__ == "__main__":
         config = Config()
         db = DatabaseManager(config)
         vissim_manager = VissimSimulationManager(config, db)
-
         db.fetch_peak_traffic_data()
-
-        area_list = ["아레나", "송정동", "도심(강릉역)", "교동지구"]
+        area_list = ["gyodong", "gyeongpo", "downtown", "songjung"]
+        
         for area in area_list:
             vissim_manager.run_full_simulation(area)
 

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <title>교통지구 대시보드 - Video Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        /* 전체 */
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            background: #0a0a0a;
+            color: #ddd;
+            font-family: Arial, "Noto Sans KR", sans-serif;
+            font-size: 40px;
+            /* 기본 글자 크기 */
+        }
+
+        /* 상단 타이틀바 */
+        .titlebar {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 20px 24px;
+            background: #0e0e0e;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 40px;
+            color: #e9f0ff;
+            font-weight: 800;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .titlebar .time {
+            color: #ffde7a;
+            border: 2px solid #3a3a3a;
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: #1a1a1a;
+            font-size: 40px;
+            font-weight: 700;
+        }
+
+        /* 본문: 좌/우 2열 */
+        .content {
+            display: grid;
+            grid-template-columns: 40% 60%;
+            /* 좌측 40%, 우측 60% */
+            grid-template-rows: 1fr;
+            width: 100%;
+            height: calc(100vh - 80px);
+            /* 타이틀 높이만큼 뺌 */
+            overflow: hidden;
+        }
+
+        /* 좌측(표) */
+        .left {
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+            background: #000;
+        }
+
+        /* pill, section, table */
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .pill {
+            padding: 20px 28px;
+            border-radius: 18px;
+            background: #1f1f1f;
+            color: #9ee37d;
+            font-weight: 700;
+            font-size: 40px;
+        }
+
+        .section {
+            background: #111;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #262626;
+            margin-bottom: 24px;
+        }
+
+        .section h3 {
+            margin: 0 0 20px;
+            font-size: 40px;
+            color: #9cc8ff;
+            font-weight: 700;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 40px;
+        }
+
+        .table th,
+        .table td {
+            padding: 20px 24px;
+            border-bottom: 1px solid #2a2a2a;
+            text-align: left;
+        }
+
+        .table th {
+            color: #a5a5a5;
+            font-weight: 600;
+            background: #1a1a1a;
+            font-size: 40px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: #222;
+            color: #e2e2e2;
+            font-size: 40px;
+        }
+
+        /* 우측(영상) */
+        .right {
+            position: relative;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .right video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 상단 타이틀: 전체폭 -->
+    <div class="titlebar">
+        <div>교통지구 시간대별 교통혼잡 정보</div>
+        <div class="time">오전첨두 08~09시</div>
+    </div>
+
+    <!-- 본문 2열 -->
+    <div class="content">
+        <!-- 좌측: 임시 표(샘플) -->
+        <div class="left">
+            <div class="pill-row">
+                <div class="pill">교통지구 12.8초</div>
+                <div class="pill">50.3km/h</div>
+                <div class="pill">1,877원</div>
+                <div class="pill">송평등 17.1초</div>
+                <div class="pill">41.8km/h</div>
+            </div>
+
+            <div class="section">
+                <h3>도로구간</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>구간명</th>
+                            <th>통행량</th>
+                            <th>V/C</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>동해대로</td>
+                            <td>234대</td>
+                            <td>0.43</td>
+                        </tr>
+                        <tr>
+                            <td>강릉대로</td>
+                            <td>234대</td>
+                            <td>0.43</td>
+                        </tr>
+                        <tr>
+                            <td>솔올로</td>
+                            <td>234대</td>
+                            <td>0.43</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h3>주요 교통축</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>교통축</th>
+                            <th>V/C</th>
+                            <th>통행속도</th>
+                            <th>심각도</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>SA 10</td>
+                            <td>0.37</td>
+                            <td>39.4 km/h</td>
+                            <td><span class="badge">원활</span></td>
+                        </tr>
+                        <tr>
+                            <td>SA 11</td>
+                            <td>0.37</td>
+                            <td>39.4 km/h</td>
+                            <td><span class="badge">원활</span></td>
+                        </tr>
+                        <tr>
+                            <td>SA 12</td>
+                            <td>0.37</td>
+                            <td>39.4 km/h</td>
+                            <td><span class="badge">원활</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h3>주요 교차로</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>교차로명</th>
+                            <th>지체시간</th>
+                            <th>서비스수준</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>강릉초등학교 사거리</td>
+                            <td>32.6 s</td>
+                            <td>C</td>
+                        </tr>
+                        <tr>
+                            <td>강릉치과대학 사거리</td>
+                            <td>32.6 s</td>
+                            <td>C</td>
+                        </tr>
+                        <tr>
+                            <td>솔올교차로</td>
+                            <td>32.6 s</td>
+                            <td>C</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- 우측: 영상 -->
+        <div class="right">
+            <video id="dtpVideo" autoplay muted playsinline preload="auto">
+                <source src="{{ url_for('static', filename='video/district/gd_h264.mp4') }}" type="video/mp4">
+                브라우저가 video 태그를 지원하지 않습니다.
+            </video>
+
+            <!-- 디버그: 파일 접근 확인용 직접 링크 -->
+            <div class="debug">
+                소스 확인:
+                <a href="{{ url_for('static', filename='video/district/gd_h264.mp4') }}" target="_blank" rel="noopener">
+                    static/video/district/gd_h264.mp4
+                </a>
+            </div>
+        </div>
+
+        <script>
+            // 재생 보조: 로드 실패/성공 여부를 콘솔로 확인
+            const v = document.getElementById('dtpVideo');
+            v.addEventListener('error', () => {
+                console.log('VIDEO ERROR:', v.error);
+            });
+            v.addEventListener('loadedmetadata', () => {
+                console.log('VIDEO loadedmetadata:', { width: v.videoWidth, height: v.videoHeight, duration: v.duration });
+            });
+            // 자동재생을 원하면 아래 두 줄 사용 (정책상 muted 필요)
+            // v.muted = true;
+            // v.play().catch(e => console.log('Autoplay blocked:', e));
+        </script>
+</body>
+
+</html>

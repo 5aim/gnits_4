@@ -3,6 +3,7 @@
 
 
 ### Custom ###
+output/
 
 # === Python Library
 library_download/
@@ -10,6 +11,11 @@ library_download/
 # === Tibero Data Insert Code
 tibero_insert_sql.py
 tibero_insert_csv.py
+sa_geojson_insert.py
+tibero_insert_vol_sql.py
+
+# === 지점 영상
+static/video
 
 
 

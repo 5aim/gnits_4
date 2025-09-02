@@ -32,10 +32,8 @@
 2. python 시스템 환경변수 path 설정
 3. C 드라이브 내 'Digital Twin Simulation Program' 폴더 생성 또는 git clone
 
-    C:\Digital Twin Simulation Program.
-    ├─ auto simulation
-    ├─ static
-    ├─ templates
+    
+    templ
     ├─ .env
     ├─ .gitignore
     ├─ requirements.txt
@@ -48,10 +46,8 @@
     (2) 해당 디렉터리 이동 명령어 'cd C:/Digital Twin Simulation Program' 실행
     (3) python 가상환경 생성 명령어 'python -m venv venv' 또는 'python3 -m venv venv' 실행
     
-        C:\Digital Twin Simulation Program.
-        ├─ auto simulation
-        ├─ static
-        ├─ templates
+        
+        templ
         ├─ .env
         ├─ .gitignore
         ├─ requirements.txt

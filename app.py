@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import pytz
 
+from pprint import pprint
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from collections import defaultdict
@@ -174,10 +175,10 @@ def convert_decimal(obj):
 # ========================================================= [ 권역별 매핑 ]
 
 district_mapping = {
-    1: "교동지구",
-    2: "송정동",
+    1: "교동",
+    2: "송정",
     3: "도심",
-    4: "아레나"
+    4: "경포"
 }
 hourly_mapping = {
     "08": "오전첨두 08시 ~ 09시",
@@ -227,6 +228,12 @@ def sign_up():
 @app.route('/home')
 def home():
     return render_template('home.html')
+
+# ========================================================= [ 메인페이지 ]
+
+@app.route('/video_test', methods=['GET'])
+def video_test():
+    return render_template('video_test.html')
 
 # ========================================================= [ 딥러닝 학습 ]
 
@@ -304,9 +311,206 @@ def home():
 
 @app.route('/monitoring/visum-hourly-vc', methods=['GET'])
 def visum_hourly_vc():
-    pass
+    now_kst = datetime.now(KST)  # 참고용
+    # rule_date = resolve_dataset_date(now_kst)  # ▶ 배포 시 복원
+    rule_date = "20250701"  # ▶ 테스트용
 
-# ========================================================= [ 모니터링 2 - 교통존간 통행정보 ]
+    # 공통 헤더 계산(다음 업데이트 시각: 매일 06:00 KST)
+    next_update = now_kst.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now_kst >= next_update:
+        next_update += timedelta(days=1)
+    x_next_update = next_update.isoformat()
+
+    # 0) 쿼리 파라미터(hour) 검증 — 400 응답 분리
+    ALLOWED_HOURS = {"08", "11", "14", "17", "24"}
+    hour_param = request.args.get('hour', '').strip()
+    if not hour_param:
+        return jsonify({"error": "Missing 'hour' query parameter.",
+                        "allowed": sorted(list(ALLOWED_HOURS))}), 400
+    if hour_param not in ALLOWED_HOURS:
+        return jsonify({"error": f"Invalid hour '{hour_param}'.",
+                        "allowed": sorted(list(ALLOWED_HOURS))}), 400
+
+    # ✅ make_etag가 정수 시퀀스를 기대하므로, int로 변환해 1-튜플로 전달
+    try:
+        hours_key_for_etag = (int(hour_param),)
+    except ValueError:
+        hours_key_for_etag = (24,) if hour_param == "24" else (0,)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 1) 분기: 시간대 vs 일(day)
+        if hour_param == "24":
+            target_key = rule_date  # yyyymmdd
+            sql_main = """
+                SELECT LINK_ID, VC
+                FROM TOMMS.DAY_LINK_RESULT
+                WHERE STAT_DAY = ?
+                ORDER BY LINK_ID
+            """
+            main_param = (rule_date,)
+
+            # ── hour_label 계산: mm월 dd일 00시 ~ 24시
+            date_source = rule_date + "00"  # yyyymmddhh 형태로 mm, dd 추출용
+            mm = int(date_source[4:6])
+            dd = int(date_source[6:8])
+            hour_label = f"{mm}월 {dd}일 전일 평균"
+
+        else:
+            stat_hour = rule_date + hour_param  # 예: 2025070108
+            target_key = stat_hour              # yyyymmddhh
+            sql_main = """
+                SELECT LINK_ID, VC
+                FROM TOMMS.HOUR_LINK_RESULT
+                WHERE STAT_HOUR = ?
+                ORDER BY LINK_ID
+            """
+            main_param = (stat_hour,)
+
+            # ── hour_label 계산: mm월 dd일 hh시 ~ (hh+1)시
+            date_source = stat_hour             # yyyymmddhh
+            mm = int(date_source[4:6])
+            dd = int(date_source[6:8])
+            start_h = int(hour_param)
+            end_h = (start_h + 1) % 24
+            hour_label = f"{mm}월 {dd}일 {start_h:02d}시 ~ {end_h:02d}시"
+
+        cursor.execute(sql_main, main_param)
+        rows = cursor.fetchall()
+
+        # 2) 그룹/ID 수집 + per-id VC 누적
+        groups = []
+        all_ids_in_order = []
+        from collections import defaultdict
+        vc_list_by_id = defaultdict(list)
+
+        for raw_link, vc_val in rows:
+            if not raw_link:
+                continue
+            ids = [x.strip() for x in str(raw_link).split(",") if x.strip()]
+            if not ids:
+                continue
+
+            try:
+                vc_num = None if vc_val is None else float(vc_val)
+            except Exception:
+                vc_num = None
+
+            groups.append({"raw": ",".join(ids), "ids": ids})
+            all_ids_in_order.extend(ids)
+
+            if vc_num is not None:
+                for lid in ids:
+                    vc_list_by_id[lid].append(vc_num)
+
+        # 빈 결과 404 (정책상 ETag 없음)
+        if not groups:
+            return jsonify({"status": "fail", "message": f"{rule_date} 데이터가 없습니다."}), 404
+
+        # --- ETag / If-None-Match (민감도: len(groups)만 반영) ---
+        etag = f'"{make_etag(rule_date, hours_key_for_etag, total_rows=len(groups))}"'
+        inm_raw = request.headers.get("If-None-Match", "")
+        inm = inm_raw.strip().strip('"').replace("W/","").strip()
+
+        if inm == etag.strip('"'):
+            payload = {
+                "status": "not_modified",
+                "message": "Resource not modified. Use cached response.",
+                "target_date": rule_date
+            }
+            body = json.dumps(payload, ensure_ascii=False)
+            resp = Response(body, content_type="application/json; charset=utf-8", status=304)
+            resp.headers["ETag"] = etag
+            resp.headers["X-Dataset-Date"] = rule_date
+            resp.headers["X-Next-Update"] = x_next_update
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
+        # ---------------------------------------------------------
+
+        # 3) LINK_VERTEX 일괄 조회(IN)
+        unique_ids = list(dict.fromkeys(all_ids_in_order).keys())
+        placeholders = ",".join(["?"] * len(unique_ids))
+        sql_vertex = f"""
+            SELECT LINK_ID, LINK_SEQ, WGS84_X, WGS84_Y
+            FROM TOMMS.LINK_VERTEX
+            WHERE LINK_ID IN ({placeholders})
+            ORDER BY LINK_ID, LINK_SEQ
+        """
+        cursor.execute(sql_vertex, tuple(unique_ids))
+        vrows = cursor.fetchall()
+        if not vrows:
+            return jsonify({"status": "fail", "message": "NODE_INFO 데이터가 없습니다."}), 404
+
+        # 4) 개별 link_id → 좌표 목록 매핑
+        coords_by_id = defaultdict(list)
+        for link_id, link_seq, x, y in vrows:
+            fx = float(x) if x is not None else None
+            fy = float(y) if y is not None else None
+            coords_by_id[str(link_id)].append([fx, fy])
+
+        # 4-1) per-id VC 평균
+        vc_by_id_avg = {}
+        for lid, arr in vc_list_by_id.items():
+            if arr:
+                vc_by_id_avg[lid] = sum(arr) / len(arr)
+
+        # 5) 문서 구성
+        documents = []
+        doc_vcs_for_avg = []
+        for g in groups:
+            merged_coords = []
+            per_id_vcs = []
+            for lid in g["ids"]:
+                merged_coords.extend(coords_by_id.get(lid, []))
+                if lid in vc_by_id_avg:
+                    per_id_vcs.append(vc_by_id_avg[lid])
+
+            if per_id_vcs:
+                group_vc = round(sum(per_id_vcs) / len(per_id_vcs), 2)
+                doc_vcs_for_avg.append(group_vc)
+            else:
+                group_vc = None
+
+            documents.append({
+                "link_id": g["raw"],
+                "coordinates": merged_coords,
+                "v/c": group_vc
+            })
+
+        # 6) 전체 평균 v/c
+        avg_vc = round(sum(doc_vcs_for_avg) / len(doc_vcs_for_avg), 2) if doc_vcs_for_avg else 0.00
+
+        final_json = {
+            "v/c": avg_vc,
+            "hour_label": hour_label,
+            "traffic_vol": 9999,
+            "documents": documents
+        }
+
+        # 본문 + 헤더
+        body = json.dumps(final_json, ensure_ascii=False)
+        resp = Response(body, content_type="application/json; charset=utf-8", status=200)
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        resp.headers["ETag"] = etag
+        resp.headers["X-Dataset-Date"] = rule_date
+        resp.headers["X-Next-Update"] = x_next_update
+        return resp
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+        finally:
+            conn.close()
+
+# 완료 ========================================================= [ 모니터링 2 - 교통존간 통행정보 ]
 
 @app.route('/monitoring/visum-zone-od', methods=['GET'])
 def visum_zone_od():
@@ -403,6 +607,7 @@ def visum_zone_od():
         for _, g in groups.items():
             # Points FeatureCollection: from 1개 + to N개
             points = {"type": "FeatureCollection", "features": []}
+
             # from point
             points["features"].append({
                 "type": "Feature",
@@ -416,6 +621,7 @@ def visum_zone_od():
                     "coordinates": [g["from_lat"], g["from_lon"]]   # [lat, lon]
                 }
             })
+
             # to points
             for it in g["items"]:
                 points["features"].append({
@@ -455,11 +661,37 @@ def visum_zone_od():
                     }
                 })
 
+            # ---- ⬇️ from_zone 좌표 보정 로직: points.features 전체 기준 bounding-box의 중심 ----
+            # None 값 제거 후 lat/lon 각각의 min/max 계산
+            all_lats = []
+            all_lons = []
+            for feat in points["features"]:
+                coords = feat.get("geometry", {}).get("coordinates", [])
+                if not coords or len(coords) < 2:
+                    continue
+                lat, lon = coords[0], coords[1]  # 현재 구조: [lat, lon]
+                if lat is not None and lon is not None:
+                    all_lats.append(lat)
+                    all_lons.append(lon)
+
+            if all_lats and all_lons:
+                min_lat, max_lat = min(all_lats), max(all_lats)
+                min_lon, max_lon = min(all_lons), max(all_lons)
+                mid_lat = round((min_lat + max_lat) / 2.0, 4)
+                mid_lon = round((min_lon + max_lon) / 2.0, 4)
+                from_coords = [mid_lat, mid_lon]     # [lat, lon]
+            else:
+                # 안전가드: 계산 불가 시 원래 좌표 사용
+                from_coords = [
+                    g["from_lat"] if g["from_lat"] is not None else 0.0,
+                    g["from_lon"] if g["from_lon"] is not None else 0.0
+                ]
+
             payload.append({
                 "from_zone": {
                     "id": g["from_zone_id"],
                     "name": g["from_zone_name"],
-                    "coordinates": [g["from_lat"], g["from_lon"]]  # [lat, lon]
+                    "coordinates": from_coords  # 새로 계산된 센터 좌표 [lat, lon]
                 },
                 "points": points,
                 "lines": lines,
@@ -517,80 +749,73 @@ def visum_zone_od():
         resp.headers["Cache-Control"] = "no-store"
         return resp
 
-# ========================================================= [ 모니터링 3 - 분석지역별 교통흐름 통계정보 ] - 4k 
+# ========================================================= [ 모니터링 4K - 분석지역별 교통흐름 통계정보 ]
 
-@app.route('/monitoring/statistics-traffic-flow/node-result', methods=['GET'])
+@app.route('/monitoring/statistics-traffic-flow', methods=['GET'])
 def statistics_traffic_flow():
     try:
-        # --- 0) 테스트: 고정 날짜 + hours 필터 ---
+        # --- 0) 날짜 고정(테스트) ---
         now_kst = datetime.now(KST)  # 참고용
-        # rule_date = resolve_dataset_date(now_kst)  # ▶ 배포 시 이 줄로 복원
-        rule_date = "20250701"  # ▶ 테스트용 강제 날짜(배포 시 삭제/주석)
-        hours_filter = parse_hours_param((request.args.get('hours') or '').strip())
-        
-        map_center_coordinates = [
-            {
-                "district":"교동지구",
-                "coordinates": [128.874273, 37.765208]
-            },
-            {
-                "district":"송정동",
-                "coordinates": [128.924538, 37.771808]
-            },
-            {
-                "district":"도심",
-                "coordinates": [128.897176, 37.755575]
-            },
-            {
-                "district":"아레나",
-                "coordinates": [128.891529, 37.787484]
-            }
-        ]
+        # rule_date = resolve_dataset_date(now_kst)  # ▶ 배포 시 복원
+        rule_date = "20250701"  # ▶ 테스트용 (YYYYMMDD)
 
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        # --- 1) 지정 날짜로 데이터 조회 (없으면 404) ---
-        cursor.execute("""
-            SELECT DISTRICT, STAT_HOUR, NODE_ID, DELAY, VEHS
-            FROM NODE_RESULT
-            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
-        """, [rule_date])
-        rows = cursor.fetchall()
-        rows = [tuple(r) for r in rows] if rows else []
-        if not rows:
-            return jsonify({"status": "fail", "message": f"{rule_date} 데이터가 없습니다."}), 404
-
-        df_result = pd.DataFrame(rows, columns=["DISTRICT", "STAT_HOUR", "NODE_ID", "DELAY", "VEHS"])
-        df_result["DELAY"] = pd.to_numeric(df_result["DELAY"], errors="coerce")
-        df_result["VEHS"]  = pd.to_numeric(df_result["VEHS"], errors="coerce").fillna(0).astype(int)
-        df_result["DISTRICT"] = df_result["DISTRICT"].apply(lambda x: int(x) if pd.notna(x) else None)
-
-        cursor.execute("SELECT NODE_ID, LAT, LON FROM NODE_INFO")
-        info_rows = cursor.fetchall()
-        if not info_rows:
-            return jsonify({"status": "fail", "message": "NODE_INFO 데이터가 없습니다."}), 404
-        info_rows = [tuple(r) for r in info_rows]
-        df_info = pd.DataFrame(info_rows, columns=["NODE_ID", "LAT", "LON"])
-
-        # --- 2) 병합 + 필터 ---
-        df = pd.merge(df_result, df_info, on="NODE_ID", how="left")
-        df = df.dropna(subset=["LAT", "LON", "DISTRICT"])
-        df["DISTRICT_NAME"] = df["DISTRICT"].map(district_mapping)
-        df["HOUR"] = df["STAT_HOUR"].str[-2:].astype(int)  # 0~23
-
-        if hours_filter is not None:
-            df = df[df["HOUR"].isin(hours_filter)]
-
-        # 공통 헤더 계산(다음 업데이트 시각: 매일 06:00 KST)
+        # --- 공통 헤더: 다음 업데이트 시각(매일 06:00 KST) ---
         next_update = now_kst.replace(hour=6, minute=0, second=0, microsecond=0)
         if now_kst >= next_update:
             next_update += timedelta(days=1)
         x_next_update = next_update.isoformat()
 
-        if df.empty:
-            # 빈 결과에도 ETag, X-Next-Update, X-Dataset-Date 제공
-            etag = f'"{make_etag(rule_date, hours_filter, total_rows=0)}"'
+        # --- 0-1) hour 쿼리 파라미터 파싱/검증 ---
+        ALLOWED_HOURS = {"08", "11", "14", "17"}
+        hours_raw = (request.args.get('hour') or '').strip()
+        hours_filter = None
+        if hours_raw:
+            parts = [p.strip() for p in hours_raw.split(",") if p.strip()]
+            invalid = [p for p in parts if p not in ALLOWED_HOURS]
+            if invalid:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Invalid hour value(s): {', '.join(invalid)}",
+                    "allowed": sorted(list(ALLOWED_HOURS))
+                }), 400
+            hours_filter = set(parts)  # {"08","11"} 등
+
+        # ✅ ETag용 키를 정수 튜플로 정규화 (예: {"08","11"} -> (8,11))
+        if hours_filter:
+            hours_key_for_etag = tuple(sorted(int(h) for h in hours_filter))
+        else:
+            hours_key_for_etag = None
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # ============================================================
+        # A) documents 구성: HOUR_LINK_RESULT + LINK_VERTEX (시간 필터 반영)
+        # ============================================================
+        cursor.execute("""
+            SELECT STAT_HOUR, LINK_ID, DISTRICT, SA_NO, VC, VOLUME, SPEED
+            FROM HOUR_LINK_RESULT
+            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
+        """, [rule_date])
+        rows = cursor.fetchall()
+        rows = [tuple(r) for r in rows] if rows else []
+        if not rows:
+            # 원자료 없음 → 404 (정책상 ETag 없음)
+            return jsonify({"status": "fail", "message": f"{rule_date} 데이터가 없습니다."}), 404
+
+        df_result = pd.DataFrame(
+            rows,
+            columns=["STAT_HOUR", "LINK_ID", "DISTRICT", "SA_NO", "VC", "VOLUME", "SPEED"]
+        )
+
+        # 시간 필터 적용(요청 시)
+        if hours_filter:
+            # STAT_HOUR: yyyymmddHH → 뒤 2자리(HH) 기준 필터
+            df_result = df_result[df_result["STAT_HOUR"].str[-2:].isin(hours_filter)]
+
+        # 빈 결과 204 + ETag
+        if df_result.empty:
+            etag = f'"{make_etag(rule_date, hours_key_for_etag, total_rows=0)}"'
             resp = Response(status=204)
             resp.headers["ETag"] = etag
             resp.headers["X-Dataset-Date"] = rule_date
@@ -600,18 +825,8 @@ def statistics_traffic_flow():
             resp.headers["Expires"] = "0"
             return resp
 
-        # --- 3) 집계 ---
-        vehs_df = (
-            df.groupby(["HOUR", "DISTRICT", "DISTRICT_NAME"])["VEHS"]
-              .sum().reset_index().rename(columns={"VEHS": "VEHS_SUM"})
-        )
-        node_df = df[["HOUR","DISTRICT","DISTRICT_NAME","NODE_ID","DELAY","LAT","LON"]].copy()
-        node_df["DELAY"] = node_df["DELAY"].round(2)
-        node_df["LOS"] = node_df["DELAY"].apply(get_los)
-
-        # --- 4) ETag / If-None-Match ---
-        etag = f'"{make_etag(rule_date, hours_filter, total_rows=len(df))}"'
-        # 따옴표/Weak 태그 허용 비교
+        # ETag / If-None-Match
+        etag = f'"{make_etag(rule_date, hours_key_for_etag, total_rows=len(df_result))}"'
         inm_raw = request.headers.get("If-None-Match", "")
         inm = inm_raw.strip().strip('"').replace("W/","").strip()
         if inm == etag.strip('"'):
@@ -623,77 +838,185 @@ def statistics_traffic_flow():
             resp.headers["Pragma"] = "no-cache"
             resp.headers["Expires"] = "0"
             return resp
+        # -----------------------------------------------------------
 
-        # --- 5) 시간 블록 구성 (라벨: "n월 n일 HH시 ~ HH+1시") ---
-        mm = int(rule_date[4:6]); dd = int(rule_date[6:8])
-        hours = sorted(df["HOUR"].unique().tolist())
-        hour_blocks = []
+        # 숫자형 보정(문자열은 건드리지 않음)
+        df_result["SPEED"] = pd.to_numeric(df_result["SPEED"], errors="coerce")
+        df_result["VC"] = pd.to_numeric(df_result["VC"], errors="coerce")
+        df_result["VOLUME"] = pd.to_numeric(df_result["VOLUME"], errors="coerce")
 
-        for h in hours:
-            h_next = (h + 1) % 24
-            hour_label = f"{mm}월 {dd}일 {h:02d}시 ~ {h_next:02d}시"
+        # LINK_ID 목록 추출(순서 보존 중복제거)
+        all_ids_in_order = [str(x).strip() for x in df_result["LINK_ID"].tolist() if str(x).strip()]
+        unique_ids = list(dict.fromkeys(all_ids_in_order).keys())
 
-            # 시간 h의 지구별 총 교통량 → total_traffic_value 로 외부에 분리
-            recs = (
-                vehs_df[vehs_df["HOUR"] == h]
-                .sort_values(["DISTRICT"])
-                .to_dict("records")
+        # LINK_VERTEX 일괄 조회(IN)
+        placeholders = ",".join(["?"] * len(unique_ids))
+        sql_vertex = f"""
+            SELECT LINK_ID, LINK_SEQ, WGS84_X, WGS84_Y
+            FROM LINK_VERTEX
+            WHERE LINK_ID IN ({placeholders})
+            ORDER BY LINK_ID, LINK_SEQ
+        """
+        cursor.execute(sql_vertex, tuple(unique_ids))
+        vrows = cursor.fetchall()
+        if not vrows:
+            # 보조 테이블 없음 → 404 (정책상 ETag 없음)
+            return jsonify({"status": "fail", "message": "LINK_VERTEX 데이터가 없습니다."}), 404
+
+        # 좌표 매핑(link_id → [[x,y], ...])  [x=lon, y=lat]
+        from collections import defaultdict
+        coords_by_id = defaultdict(list)
+        for link_id, link_seq, x, y in vrows:
+            fx = float(x) if x is not None else None
+            fy = float(y) if y is not None else None
+            coords_by_id[str(link_id)].append([fx, fy])
+
+        # --- 링크별 요약 ---
+        agg_df = (
+            df_result.groupby("LINK_ID").agg(
+                vc_avg=("VC", "mean"),
+                volume_sum=("VOLUME", "sum"),
+                speed_avg=("SPEED", "mean")
+            ).reset_index()
+        )
+        vc_by_id = {str(r["LINK_ID"]): (None if pd.isna(r["vc_avg"]) else round(float(r["vc_avg"]), 2))
+                    for _, r in agg_df.iterrows()}
+        vol_by_id = {str(r["LINK_ID"]): (None if pd.isna(r["volume_sum"]) else int(r["volume_sum"]))
+                     for _, r in agg_df.iterrows()}
+        spd_by_id = {str(r["LINK_ID"]): (None if pd.isna(r["speed_avg"]) else round(float(r["speed_avg"]), 2))
+                     for _, r in agg_df.iterrows()}
+
+        # --- LINK_ID → DISTRICT 매핑 (첫 등장값 기준) ---
+        df_link_dist = df_result[["LINK_ID", "DISTRICT"]].copy()
+        df_link_dist["DISTRICT"] = pd.to_numeric(df_link_dist["DISTRICT"], errors="coerce").astype("Int64")
+        df_link_dist = df_link_dist.dropna(subset=["DISTRICT"])
+        df_link_dist = df_link_dist.drop_duplicates(subset=["LINK_ID"], keep="first")
+        link_to_district = {str(row["LINK_ID"]): int(row["DISTRICT"]) for _, row in df_link_dist.iterrows()}
+
+        # --- 구역별 바스켓 4개 생성 ---
+        order_codes = [1, 2, 3, 4]
+        documents_grouped = [
+            {
+                "district_no": code,
+                "district_name": district_mapping.get(code, str(code)),
+                "data": []
+            }
+            for code in order_codes
+        ]
+        idx_by_code = {d["district_no"]: i for i, d in enumerate(documents_grouped)}
+
+        # --- 링크 요약을 해당 DISTRICT 바스켓에 채우기 ---
+        for lid in unique_ids:
+            d_no = link_to_district.get(str(lid))
+            if d_no not in idx_by_code:  # DISTRICT가 1~4가 아니면 스킵
+                continue
+            item = {
+                "link_id": str(lid),
+                "coordinates": coords_by_id.get(str(lid), []),
+                "v/c": vc_by_id.get(str(lid)),
+                "volume": vol_by_id.get(str(lid)),
+                "speed": spd_by_id.get(str(lid))
+            }
+            documents_grouped[idx_by_code[d_no]]["data"].append(item)
+
+        # ============================================================
+        # B) 일 평균 속도 - daily_average_speed: DAY_LINK_RESULT에서 계산 (파라미터 무관)
+        # ============================================================
+        cursor.execute("""
+            SELECT DISTRICT, SA_NO, SPEED
+            FROM DAY_LINK_RESULT
+            WHERE STAT_DAY = ?
+        """, [rule_date])
+        day_rows = cursor.fetchall()
+        day_rows = [tuple(r) for r in day_rows] if day_rows else []
+
+        daily_average_speed = []
+        if day_rows:
+            df_day = pd.DataFrame(day_rows, columns=["DISTRICT", "SA_NO", "SPEED"])
+            df_day["SPEED"] = pd.to_numeric(df_day["SPEED"], errors="coerce")
+            df_day["DISTRICT"] = pd.to_numeric(df_day["DISTRICT"], errors="coerce").astype("Int64")
+
+            overall_avg_by_dist = df_day.groupby("DISTRICT")["SPEED"].mean()
+
+            sa_present_mask = df_day["SA_NO"].notna() & (df_day["SA_NO"].astype(str).str.strip() != "")
+            df_day_sa = df_day[sa_present_mask]
+            sa_included_by_dist = (
+                df_day_sa.groupby("DISTRICT")["SPEED"].mean()
+                if not df_day_sa.empty else pd.Series(dtype=float)
             )
-            total_traffic_value = [
-                {
-                    "code": int(rec["DISTRICT"]),
-                    "district": rec["DISTRICT_NAME"],
-                    "vehs": int(rec["VEHS_SUM"])
-                }
-                for rec in recs
-            ]
 
-            # district_data 내부에는 code, district, geojson(좌표+los만)만 유지
-            district_data = []
-            for rec in recs:
-                code = int(rec["DISTRICT"])
-                name = rec["DISTRICT_NAME"]
+            for code in order_codes:
+                name = district_mapping.get(code)
+                overall = None
+                if code in overall_avg_by_dist.index:
+                    o = overall_avg_by_dist.loc[code]
+                    overall = None if pd.isna(o) else round(float(o), 2)
 
-                sub = node_df[(node_df["HOUR"] == h) & (node_df["DISTRICT"] == code)]
-                features = []
-                for _, r in sub.iterrows():
-                    features.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            # 현재 메타 'latlon'을 유지 (표준 GeoJSON 사용 시 [lon, lat]로 교체)
-                            "coordinates": [float(r["LAT"]), float(r["LON"])]
-                        },
-                        "properties": {
-                            "los": r["LOS"]
-                        }
-                    })
+                sa_included = None
+                if code in sa_included_by_dist.index:
+                    s = sa_included_by_dist.loc[code]
+                    sa_included = None if pd.isna(s) else round(float(s), 2)
 
-                district_data.append({
-                    "code": code,
+                daily_average_speed.append({
                     "district": name,
-                    "geojson": {
-                        "type": "FeatureCollection",
-                        "features": features
+                    "daily_average_speed": {
+                        "overall": overall,
+                        "sa_included": sa_included
                     }
                 })
+        else:
+            for code in order_codes:
+                daily_average_speed.append({
+                    "district": district_mapping.get(code),
+                    "daily_average_speed": {"overall": None, "sa_included": None}
+                })
 
-            hour_blocks.append({
-                "hour_label": hour_label,
-                "total_traffic_value": total_traffic_value,
-                "district_data": district_data
-            })
+        # ============================================================
+        # C) hour_label 생성: 'mm월 dd일 hh시 ~ hh시'
+        #    - 단일 시간: 문자열 1개
+        #    - 다중/미지정: 해당 시간대 전체의 라벨 리스트
+        # ============================================================
+        mm = int(rule_date[4:6])
+        dd = int(rule_date[6:8])
 
+        def make_label(hh_str: str) -> str:
+            start_h = int(hh_str)
+            end_h = (start_h + 1) % 24
+            return f"{mm}월 {dd}일 {start_h:02d}시 ~ {end_h:02d}시"
+
+        if hours_filter and len(hours_filter) == 1:
+            single_hour = sorted(list(hours_filter))[0]
+            hour_label_value = make_label(single_hour)  # 문자열
+        else:
+            # 파라미터 없거나 다중 시간의 경우: 데이터에 실제 존재하는 시간대 기준으로 구성
+            if hours_filter:
+                candidate_hours = sorted(hours_filter)
+            else:
+                # df_result에서 실제 존재하는 시간대 추출 (ALLOWED_HOURS와 교집합)
+                candidate_hours = sorted(set(df_result["STAT_HOUR"].str[-2:]).intersection(ALLOWED_HOURS))
+            hour_label_value = [make_label(h) for h in candidate_hours]  # 리스트
+
+        # ============================================================
+        # D) 본문 + 헤더(정상 200에서도 ETag 포함)
+        # ============================================================
         payload = {
             "status": "success",
-            "target_date": rule_date,
-            "map_center_coordinates": map_center_coordinates,
-            "data": hour_blocks,
-            "meta": {
-                "coord_order": "latlon",
-                "hours_filter": sorted(list(hours_filter)) if hours_filter else None,
-                "note": "테스트 모드: target_date 고정(2025-07-01)"
-            }
+            "hour_label": hour_label_value,
+            "row_count": int(len(df_result)),
+            "documents": documents_grouped,              # ✅ DISTRICT-그룹 형태
+            "daily_average_speed": daily_average_speed,  # 그대로 유지
+            "hourly_total_traffic_volume": [
+                {"district": "교동", "traffic_volume": 8888},
+                {"district": "송정", "traffic_volume": 7777},
+                {"district": "도심", "traffic_volume": 9999},
+                {"district": "경포", "traffic_volume": 6666}
+            ],
+            "map_center_coordinates": [
+                {"district": "교동", "coordinates": [128.874273, 37.765208]},
+                {"district": "송정", "coordinates": [128.924538, 37.771808]},
+                {"district": "도심", "coordinates": [128.897176, 37.755575]},
+                {"district": "경포", "coordinates": [128.891529, 37.787484]}
+            ]
         }
 
         body = json.dumps(payload, ensure_ascii=False)
@@ -708,22 +1031,31 @@ def statistics_traffic_flow():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+        finally:
+            conn.close()
 
-# ========================================================= [ 모니터링 4 - 도로구간별 통행량 정보 ]
-
-@app.route('/monitoring/road-traffic-info', methods=['GET'])
-def road_traffic_info():
-    pass
-
-# ========================================================= [ 모니터링 5 - 교차로별 통행정보 ]
+# ========================================================= [ 모니터링 4 - 교차로별 통행정보 ]
 
 @app.route('/monitoring/node-result', methods=['GET'])
 def node_result_summary():
+    now_kst = datetime.now(KST)  # 참고용
+    # rule_date = resolve_dataset_date(now_kst)  # ▶ 배포 시 복원
+    rule_date = "20250701"  # ▶ 테스트용 (YYYYMMDD)
+
+    # 공통 헤더 계산(다음 업데이트 시각: 매일 06:00 KST)
+    next_update = now_kst.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now_kst >= next_update:
+        next_update += timedelta(days=1)
+    x_next_update = next_update.isoformat()
+
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
-        # 1) 최신 날짜(YYYYMMDD)
+        # 0) 테이블에 존재하는 최신 날짜(YYYYMMDD)
         cursor.execute("""
             SELECT STAT_DATE FROM (
                 SELECT SUBSTR(STAT_HOUR, 1, 8) AS STAT_DATE
@@ -737,14 +1069,27 @@ def node_result_summary():
         if not latest_date_row:
             return jsonify({"status": "fail", "message": "STAT_HOUR 날짜 데이터가 없습니다."}), 404
         latest_date = latest_date_row[0]
-        mm, dd = int(latest_date[4:6]), int(latest_date[6:8])
 
-        # 2) 데이터 조회
+        # 1) rule_date 데이터 유무 확인 → 있으면 rule_date 사용, 없으면 latest_date로 폴백
+        cursor.execute("""
+            SELECT 1
+            FROM NODE_RESULT
+            WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
+              AND ROWNUM = 1
+        """, [rule_date])
+        has_rule_date = cursor.fetchone() is not None
+
+        active_date = rule_date if has_rule_date else latest_date
+        fallback_used = (active_date != rule_date)
+
+        mm, dd = int(active_date[4:6]), int(active_date[6:8])
+
+        # 2) 데이터 조회 (active_date 기준)
         cursor.execute("""
             SELECT STAT_HOUR, TIMEINT, NODE_ID, QLEN, VEHS, DELAY, STOPS
             FROM NODE_RESULT
             WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
-        """, [latest_date])
+        """, [active_date])
         rows = cursor.fetchall()
         rows = [tuple(r) for r in rows]
         if not rows:
@@ -796,7 +1141,7 @@ def node_result_summary():
             "STOPS": "stops"
         }, inplace=True)
 
-        # 8) 시간 블록 데이터 구성
+        # 8) 시간 블록 데이터 구성 (active_date의 mm/dd로 라벨 생성)
         data_blocks = []
         for hour, group in df_merged.groupby("HOUR"):
             h = int(hour); h_next = (h + 1) % 24
@@ -805,29 +1150,35 @@ def node_result_summary():
             items = []
             for _, r in group.iterrows():
                 qlen  = float(r["qlen"])  if pd.notna(r["qlen"])  else 0.0
-                vehs  = float(r["vehs"])  if pd.notna(r["vehs"])  else 0.0
+                vehs  = int(r["vehs"])    if pd.notna(r["vehs"])  else 0.0
                 delay = float(r["delay"]) if pd.notna(r["delay"]) else 0.0
                 stops = float(r["stops"]) if pd.notna(r["stops"]) else 0.0
                 los   = int(r["LOS_NUM"]) if pd.notna(r["LOS_NUM"]) else None
 
                 items.append({
                     "node_name": str(r["node_name"]),
-                    "qlen": round(qlen, 2),
-                    "vehs": round(vehs, 2),
-                    "delay": round(delay, 2),
-                    "stops": round(stops, 2),
-                    "los": los,
-                    "max_qlen": round(qlen * 1.5, 2),
-                    "max_vehs": round(vehs * 1.5, 2),
-                    "max_delay": round(delay * 1.5, 2),
-                    "max_stops": 5,
-                    "max_los": 6
+                    "qlen": f"{qlen:.1f}",
+                    "vehs": f"{int(vehs)}",
+                    "delay": f"{delay:.1f}",
+                    "stops": f"{stops:.1f}",
+                    "los": f"{los}",
+                    "max_qlen": f"{qlen * 1.5:.1f}",
+                    "max_vehs": f"{int(vehs * 1.5)}",
+                    "max_delay": f"{delay * 1.5:.1f}",
+                    "max_stops": "5",
+                    "max_los": "6"
                 })
 
             data_blocks.append({"hour_label": hour_label, "items": items})
 
         # 9) Payload & ETag
-        payload = {"target_date": latest_date, "data": data_blocks}
+        payload = {
+            # "requested_date": rule_date,     # 요청 의도
+            # "active_date": active_date,      # 실제 조회에 사용된 날짜
+            # "fallback_used": fallback_used,  # rule_date 데이터 없어서 최신으로 대체했는지 여부
+            "target_date": latest_date,
+            "data": data_blocks
+        }
         body = json.dumps(payload, ensure_ascii=False)
         etag = f'"{hashlib.md5(body.encode("utf-8")).hexdigest()}"'
 
@@ -835,7 +1186,7 @@ def node_result_summary():
         now_kst = datetime.now(KST)
         next_update_kst = now_kst.replace(hour=6, minute=0, second=0, microsecond=0)
         if now_kst >= next_update_kst:
-            next_update_kst += timedelta(days=1)  # 이미 지난 경우 다음날 06시
+            next_update_kst += timedelta(days=1)
 
         x_next_update_str = next_update_kst.isoformat()
 
@@ -845,7 +1196,7 @@ def node_result_summary():
         if inm == etag.strip('"'):
             resp = Response(status=304)
             resp.headers["ETag"] = etag
-            resp.headers["X-Dataset-Date"] = latest_date
+            resp.headers["X-Dataset-Date"] = active_date
             resp.headers["X-Next-Update"] = x_next_update_str
             return resp
 
@@ -855,7 +1206,7 @@ def node_result_summary():
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
         resp.headers["ETag"] = etag
-        resp.headers["X-Dataset-Date"] = latest_date
+        resp.headers["X-Dataset-Date"] = active_date
         resp.headers["X-Next-Update"] = x_next_update_str
         return resp
 
@@ -867,6 +1218,12 @@ def node_result_summary():
             "error": str(e),
             "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }), 500
+
+# ========================================================= [ 모니터링 5 - 도로구간별 통행량 정보 ]
+
+@app.route('/monitoring/road-traffic-info', methods=['GET'])
+def road_traffic_info():
+    pass
 
 
 
@@ -1042,26 +1399,340 @@ def vttm_result_summary():
             "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }), 500
 
-# ========================================================= [ 신호운영 2 - 지점별 통행정보 ]
+# ========================================================= [ 신호운영 4K - 권역별 시간대별 교통혼잡 정보 ]
 
-@app.route('/signal/vttm-traffic-info', methods=['GET'])
-def vttm_traffic_info():
-    pass
-
-# ========================================================= [ 신호운영 3 - 시간대별 교통혼잡 정보 ]
-
-@app.route('/signal/hourly-congested-info', methods=['GET'])
+@app.route('/signal/district-hourly-congested-info', methods=['GET'])
 def hourly_congested_info_data():
-    pass
+    try:
+        # --- 0) 날짜 고정(테스트) ---
+        now_kst = datetime.now(KST)  # 참고용
+        # rule_date = resolve_dataset_date(now_kst)  # ▶ 배포 시 복원
+        rule_date = "20250701"  # ▶ 테스트용
 
-def hourly_congested_info_map_data():
-    pass
+        # --- 공통 헤더: 다음 업데이트 시각(매일 06:00 KST) ---
+        next_update = now_kst.replace(hour=6, minute=0, second=0, microsecond=0)
+        if now_kst >= next_update:
+            next_update += timedelta(days=1)
+        x_next_update = next_update.isoformat()
+
+        # --- 0-1) hour 쿼리 파라미터 파싱/검증 ---
+        ALLOWED_HOURS = {"08", "11", "14", "17"}
+        hours_raw = (request.args.get('hour') or '').strip()
+        hours_filter = None
+        if hours_raw:
+            parts = [p.strip() for p in hours_raw.split(",") if p.strip()]
+            invalid = [p for p in parts if p not in ALLOWED_HOURS]
+            if invalid:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Invalid hour value(s): {', '.join(invalid)}",
+                    "allowed": sorted(list(ALLOWED_HOURS))
+                }), 400
+            hours_filter = set(parts)  # {"08","11"} 등
+
+        # If-None-Match 수신 (ETag 비교는 응답 직전에 수행)
+        inm_raw = request.headers.get("If-None-Match", "")
+        inm = inm_raw.strip().strip('"').replace("W/","").strip()
+
+        # ✅ ETag용 키 정규화
+        hours_key_for_etag = tuple(sorted(int(h) for h in hours_filter)) if hours_filter else None
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # ============================================================
+        # A) 권역별 분석정보 : NP_RESULT (시간 필터 및 권역별 COST 합계)
+        # ============================================================
+        cursor.execute("""
+            SELECT DISTRICT, STAT_HOUR, VEHS, COST
+            FROM TOMMS.NP_RESULT
+            WHERE SUBSTR(TO_CHAR(STAT_HOUR), 1, 8) = ?
+        """, [rule_date])
+        rows = cursor.fetchall()
+        rows = [tuple(r) for r in rows] if rows else []
+        if not rows:
+            return jsonify({"status": "fail", "message": f"{rule_date} 데이터가 없습니다."}), 404
+
+        df_np_result = pd.DataFrame(rows, columns=["DISTRICT", "STAT_HOUR", "VEHS", "COST"])
+
+        # 시간 필터 적용(요청 시)
+        if hours_filter:
+            df_np_result = df_np_result[df_np_result["STAT_HOUR"].astype(str).str[-2:].isin(hours_filter)]
+
+        # 빈 결과 204
+        if df_np_result.empty:
+            etag = f'"{make_etag(rule_date, hours_key_for_etag, total_rows=0)}"'
+            resp = Response(status=204)
+            resp.headers["ETag"] = etag
+            resp.headers["X-Dataset-Date"] = rule_date
+            resp.headers["X-Next-Update"] = x_next_update
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
+
+        # ---- 타입 보정 (A)
+        df_np_result["DISTRICT"] = pd.to_numeric(df_np_result["DISTRICT"], errors="coerce")
+        df_np_result["COST"] = pd.to_numeric(df_np_result["COST"], errors="coerce")
+        df_np_result["STAT_HOUR"] = df_np_result["STAT_HOUR"].astype(str).str[:10]  # 'YYYYMMDDHH'
+        df_np_result["HH"] = df_np_result["STAT_HOUR"].str[-2:]
+        df_np_result["MM"] = df_np_result["STAT_HOUR"].str[4:6]
+        df_np_result["DD"] = df_np_result["STAT_HOUR"].str[6:8]
+
+        # 동일 키 중복 방지: 시간/권역별 COST 합
+        agg_a = (
+            df_np_result
+            .groupby(["STAT_HOUR", "HH", "MM", "DD", "DISTRICT"], dropna=False, as_index=False)["COST"]
+            .sum()
+        )
+
+        def build_hours_order(present_hours, hours_filter):
+            if hours_filter:
+                return [h for h in ["08", "11", "14", "17"] if h in hours_filter]
+            return [h for h in ["08", "11", "14", "17"] if h in present_hours]
+
+        hours_order_a = build_hours_order(set(agg_a["HH"].unique().tolist()), hours_filter)
+
+        def make_hour_label(mm: str, dd: str, hh: str) -> str:
+            hs = int(hh)
+            he = (hs + 1) % 24
+            return f"{mm}월 {dd}일 {hs:02d}시 ~ {he:02d}시"
+
+        # ---- documents 기본 골격 생성(A: district_data)
+        documents = []
+        doc_by_hh = {}
+        for hh in hours_order_a:
+            sub = agg_a[agg_a["HH"] == hh]
+            if sub.empty:
+                continue
+            mm = sub.iloc[0]["MM"]
+            dd = sub.iloc[0]["DD"]
+            hour_label = make_hour_label(mm, dd, hh)
+
+            district_data = []
+            for dno in [1, 2, 3, 4]:
+                row = sub[sub["DISTRICT"] == dno]
+                cost_val = float(row.iloc[0]["COST"]) if not row.empty and pd.notna(row.iloc[0]["COST"]) else None
+                district_data.append({
+                    "district_no": dno,
+                    "district": district_mapping.get(dno, str(dno)),
+                    "cost": cost_val
+                })
+
+            doc = {"hour_label": hour_label, "district_data": district_data}
+            documents.append(doc)
+            doc_by_hh[hh] = doc  # 이후 B 섹션에서 시간대 매칭 시 활용
+
+        # ============================================================
+        # B-1) 도로(ROAD_NAME) 기준 평균: HOUR_LINK_RESULT
+        #      - AVG(VOLUME), AVG(VC)
+        #      - UPDOWN 무시
+        # ============================================================
+        cursor.execute("""
+            SELECT DISTRICT, STAT_HOUR, ROAD_NAME,
+                   AVG(VOLUME) AS VOLUME_AVG,
+                   AVG(VC)     AS VC_AVG
+            FROM TOMMS.HOUR_LINK_RESULT
+            WHERE SUBSTR(TO_CHAR(STAT_HOUR), 1, 8) = ?
+            GROUP BY DISTRICT, STAT_HOUR, ROAD_NAME
+        """, [rule_date])
+        link_rows = cursor.fetchall()
+        link_rows = [tuple(r) for r in link_rows] if link_rows else []
+        df_link = pd.DataFrame(
+            link_rows,
+            columns=["DISTRICT", "STAT_HOUR", "ROAD_NAME", "VOLUME_AVG", "VC_AVG"]
+        ) if link_rows else pd.DataFrame(columns=["DISTRICT","STAT_HOUR","ROAD_NAME","VOLUME_AVG","VC_AVG"])
+
+        if not df_link.empty:
+            if hours_filter:
+                df_link = df_link[df_link["STAT_HOUR"].astype(str).str[-2:].isin(hours_filter)]
+            df_link["DISTRICT"]   = pd.to_numeric(df_link["DISTRICT"], errors="coerce")
+            df_link["VOLUME_AVG"] = pd.to_numeric(df_link["VOLUME_AVG"], errors="coerce")
+            df_link["VC_AVG"]     = pd.to_numeric(df_link["VC_AVG"], errors="coerce")
+            df_link["STAT_HOUR"]  = df_link["STAT_HOUR"].astype(str).str[:10]
+            df_link["HH"] = df_link["STAT_HOUR"].str[-2:]
+            df_link["MM"] = df_link["STAT_HOUR"].str[4:6]
+            df_link["DD"] = df_link["STAT_HOUR"].str[6:8]
+
+            hours_order_b1 = build_hours_order(set(df_link["HH"].unique().tolist()), hours_filter)
+            for hh in hours_order_b1:
+                if hh not in doc_by_hh:
+                    sub_any = df_link[df_link["HH"] == hh]
+                    if sub_any.empty:
+                        continue
+                    mm = sub_any.iloc[0]["MM"]; dd = sub_any.iloc[0]["DD"]
+                    doc = {"hour_label": make_hour_label(mm, dd, hh), "district_data": []}
+                    documents.append(doc)
+                    doc_by_hh[hh] = doc
+
+            # 시간대별 road_data 생성/부착
+            for hh, doc in doc_by_hh.items():
+                sub = df_link[df_link["HH"] == hh]
+                if sub.empty:
+                    doc["road_data"] = []
+                    continue
+                road_data = []
+                for dno in [1, 2, 3, 4]:
+                    part = sub[sub["DISTRICT"] == dno].copy()
+                    if part.empty:
+                        road_data.append({
+                            "district_no": dno,
+                            "district": district_mapping.get(dno, str(dno)),
+                            "roads": []
+                        })
+                        continue
+                    part = part.sort_values(["ROAD_NAME"]).reset_index(drop=True)
+                    roads = []
+                    for _, r in part.iterrows():
+                        roads.append({
+                            "road_name": (str(r["ROAD_NAME"]) if pd.notna(r["ROAD_NAME"]) else None),
+                            "volume_avg": (float(r["VOLUME_AVG"]) if pd.notna(r["VOLUME_AVG"]) else None),
+                            "vc_avg":     (float(r["VC_AVG"]) if pd.notna(r["VC_AVG"]) else None),
+                        })
+                    road_data.append({
+                        "district_no": dno,
+                        "district": district_mapping.get(dno, str(dno)),
+                        "roads": roads
+                    })
+                doc["road_data"] = road_data
+
+        # ============================================================
+        # B-2) 축(SA_NO) 기준 평균: HOUR_LINK_RESULT
+        #      - AVG(VC) -> 소수점 2자리
+        #      - AVG(SPEED) -> 소수점 1자리
+        #      - UPDOWN 무시
+        # ============================================================
+        cursor.execute("""
+            SELECT DISTRICT, STAT_HOUR, SA_NO,
+                   AVG(VC)    AS VC_AVG,
+                   AVG(SPEED) AS SPEED_AVG
+            FROM TOMMS.HOUR_LINK_RESULT
+            WHERE SUBSTR(TO_CHAR(STAT_HOUR), 1, 8) = ?
+            GROUP BY DISTRICT, STAT_HOUR, SA_NO
+        """, [rule_date])
+        sa_rows = cursor.fetchall()
+        sa_rows = [tuple(r) for r in sa_rows] if sa_rows else []
+        df_sa = pd.DataFrame(
+            sa_rows,
+            columns=["DISTRICT", "STAT_HOUR", "SA_NO", "VC_AVG", "SPEED_AVG"]
+        ) if sa_rows else pd.DataFrame(columns=["DISTRICT","STAT_HOUR","SA_NO","VC_AVG","SPEED_AVG"])
+
+        if not df_sa.empty:
+            if hours_filter:
+                df_sa = df_sa[df_sa["STAT_HOUR"].astype(str).str[-2:].isin(hours_filter)]
+            df_sa["DISTRICT"]  = pd.to_numeric(df_sa["DISTRICT"], errors="coerce")
+            df_sa["VC_AVG"]    = pd.to_numeric(df_sa["VC_AVG"], errors="coerce")
+            df_sa["SPEED_AVG"] = pd.to_numeric(df_sa["SPEED_AVG"], errors="coerce")
+            df_sa["STAT_HOUR"] = df_sa["STAT_HOUR"].astype(str).str[:10]
+            df_sa["HH"] = df_sa["STAT_HOUR"].str[-2:]
+            df_sa["MM"] = df_sa["STAT_HOUR"].str[4:6]
+            df_sa["DD"] = df_sa["STAT_HOUR"].str[6:8]
+
+            hours_order_b2 = build_hours_order(set(df_sa["HH"].unique().tolist()), hours_filter)
+            for hh in hours_order_b2:
+                if hh not in doc_by_hh:
+                    sub_any = df_sa[df_sa["HH"] == hh]
+                    if sub_any.empty:
+                        continue
+                    mm = sub_any.iloc[0]["MM"]; dd = sub_any.iloc[0]["DD"]
+                    doc = {"hour_label": make_hour_label(mm, dd, hh), "district_data": []}
+                    documents.append(doc)
+                    doc_by_hh[hh] = doc
+
+            # 반올림 유틸
+            def round_or_none(x, nd):
+                return round(float(x), nd) if (x is not None and pd.notna(x)) else None
+
+            # 시간대별 sa_data 생성/부착
+            for hh, doc in doc_by_hh.items():
+                sub = df_sa[df_sa["HH"] == hh]
+                if sub.empty:
+                    doc["sa_data"] = []
+                    continue
+                sa_data = []
+                for dno in [1, 2, 3, 4]:
+                    part = sub[sub["DISTRICT"] == dno].copy()
+                    if part.empty:
+                        sa_data.append({
+                            "district_no": dno,
+                            "district": district_mapping.get(dno, str(dno)),
+                            "segments": []
+                        })
+                        continue
+                    # SA_NO 정렬
+                    part = part.sort_values(["SA_NO"]).reset_index(drop=True)
+                    segments = []
+                    for _, r in part.iterrows():
+                        segments.append({
+                            "sa_no": (str(r["SA_NO"]) if pd.notna(r["SA_NO"]) else None),
+                            "vc_avg":   round_or_none(r["VC_AVG"], 2),  # 소수점 2자리
+                            "speed_avg": round_or_none(r["SPEED_AVG"], 1)  # 소수점 1자리
+                        })
+                    sa_data.append({
+                        "district_no": dno,
+                        "district": district_mapping.get(dno, str(dno)),
+                        "segments": segments
+                    })
+                doc["sa_data"] = sa_data
+
+        # ---- ETag 계산(A+B1+B2 합산)
+        total_rows = len(agg_a) + (len(df_link) if not df_link.empty else 0) + (len(df_sa) if not df_sa.empty else 0)
+        etag = f'"{make_etag(rule_date, hours_key_for_etag, total_rows=total_rows)}"'
+        if inm == etag.strip('"'):
+            resp = Response(status=304)
+            resp.headers["ETag"] = etag
+            resp.headers["X-Dataset-Date"] = rule_date
+            resp.headers["X-Next-Update"] = x_next_update
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
+
+        payload = {
+            "status": "success",
+            "rule_date": rule_date,     # 'YYYYMMDD'
+            # documents[*] = {
+            #   hour_label,
+            #   district_data: [{district_no, district, cost} ×4],
+            #   road_data: [{district_no, district, roads: [{road_name, volume_avg, vc_avg}...]} ×4],
+            #   sa_data:   [{district_no, district, segments: [{sa_no, vc_avg(2), speed_avg(1)}...]} ×4]
+            # }
+            "documents": documents
+        }
+
+        resp = jsonify(payload)
+        resp.headers["ETag"] = etag
+        resp.headers["X-Dataset-Date"] = rule_date
+        resp.headers["X-Next-Update"] = x_next_update
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp, 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+        finally:
+            conn.close()
 
 # ========================================================= [ 신호운영 4 - 교차로별 효과지표 분석정보 ]
 
+def _run_sql(cursor, sql, params=None, step=""):
+    params = params or []
+    try:
+        cursor.execute(sql, params)
+        return cursor.fetchall()
+    except Exception as e:
+        # 서버 로그에 상세 남기기
+        print(f"[DB-ERROR] step={step}\nSQL=\n{sql}\nparams={params}\nexc={repr(e)}")
+        # 호출자에게 에러 전달
+        raise
+
 @app.route('/signal/node-approach-result', methods=['GET'])
 def node_approach_result():
-    hour_filter = (request.args.get('hour') or '').strip()  # '08','11','14','17' 등 2자리
+    hour_filter = (request.args.get('hour') or '').strip()  # '08','11','14','17' 등
     if not (len(hour_filter) == 2 and hour_filter.isdigit() and 0 <= int(hour_filter) <= 23):
         return jsonify({
             "status": "fail",
@@ -1069,22 +1740,19 @@ def node_approach_result():
             "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }), 400
 
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
 
-        # 1) 최신 일자(YYYYMMDD)
-        cursor.execute("""
-            SELECT STAT_DATE FROM (
-                SELECT SUBSTR(STAT_HOUR, 1, 8) AS STAT_DATE
-                FROM NODE_DIR_RESULT
-                GROUP BY SUBSTR(STAT_HOUR, 1, 8)
-                ORDER BY STAT_DATE DESC
-            )
-            WHERE ROWNUM = 1
-        """)
-        latest_date_row = cursor.fetchone()
-        if not latest_date_row:
+        # -------------------------------------------- 1) 최신 일자 (단순화: MAX 사용)
+        sql_latest = """
+            SELECT MAX(SUBSTR(STAT_HOUR, 1, 8)) AS STAT_DATE
+            FROM NODE_DIR_RESULT
+        """
+        latest_rows = _run_sql(cursor, sql_latest, step="latest_date")
+        latest_date_row = latest_rows[0] if latest_rows else None
+        if not latest_date_row or not latest_date_row[0]:
             return jsonify({
                 "status": "fail",
                 "message": "NODE_DIR_RESULT에 STAT_HOUR 데이터가 없습니다.",
@@ -1096,25 +1764,17 @@ def node_approach_result():
         h = int(hour_filter); h_next = (h + 1) % 24
         label = f"{mm}월 {dd}일 {h:02d}시 ~ {h_next:02d}시"
 
-        # 2) 최신 일자의 전체 행 중 요청 시(hour)만 필터링
-        cursor.execute("""
-            SELECT DISTRICT, STAT_HOUR, TIMEINT, NODE_ID, CROSS_ID, SA_NO,
-                   APPR_ID, DIRECTION, QLEN, VEHS, DELAY, STOPS
-            FROM NODE_DIR_RESULT
+        # -------------------------------------------- 2) 최신 일자 + 해당 시(hour)만 DB에서 바로 필터
+        sql_rows = """
+            SELECT STAT_HOUR, TIMEINT, NODE_ID, SA_NO,
+                APPR_ID, DIRECTION, QLEN, VEHS, DELAY, STOPS
+            FROM TOMMS.NODE_DIR_RESULT
             WHERE SUBSTR(STAT_HOUR, 1, 8) = ?
-        """, [latest_date])
-        rows = [tuple(r) for r in cursor.fetchall()]
-        cols = ['DISTRICT', 'STAT_HOUR', 'TIMEINT', 'NODE_ID', 'CROSS_ID', 'SA_NO',
-                'APPR_ID', 'DIRECTION', 'QLEN', 'VEHS', 'DELAY', 'STOPS']
+            AND SUBSTR(STAT_HOUR, -2, 2) = ?
+        """
+        rows = [tuple(r) for r in cursor.execute(sql_rows, [latest_date, hour_filter]).fetchall()]
+        cols = ['STAT_HOUR','TIMEINT','NODE_ID','SA_NO','APPR_ID','DIRECTION','QLEN','VEHS','DELAY','STOPS']
         df = pd.DataFrame(rows, columns=cols)
-
-        # 숫자 컬럼 변환(문자 열은 그대로 유지)
-        for col in ["APPR_ID","DIRECTION","QLEN","VEHS","DELAY","STOPS","CROSS_ID"]:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-
-        # hour 필터
-        df = df[df["STAT_HOUR"].astype(str).str[-2:] == hour_filter].copy()
         if df.empty:
             return jsonify({
                 "status": "fail",
@@ -1122,30 +1782,110 @@ def node_approach_result():
                 "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }), 404
 
-        # TIMEINT는 문자열 4개만 유효
-        ORDERED_SLICES = ['00-15', '15-30', '30-45', '45-00']
+        # 숫자 변환
+        for col in ["APPR_ID","DIRECTION","QLEN","VEHS","DELAY","STOPS"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        ORDERED_SLICES = ['00-15','15-30','30-45','45-00']
         df = df[df['TIMEINT'].isin(ORDERED_SLICES)].copy()
 
-        # 3) NODE_DIR_INFO 조회(메타)
-        cursor.execute("""
+        # -------------------------------------------- 3) NODE_DIR_INFO 조회
+        sql_info = """
             SELECT CROSS_ID, DISTRICT, NODE_ID, NODE_NAME, CROSS_TYPE, INT_TYPE,
-                   APPR_ID, DIRECTION, APPR_NAME
-            FROM NODE_DIR_INFO
-        """)
-        info_rows = [tuple(r) for r in cursor.fetchall()]
-        info_cols  = ['CROSS_ID','DISTRICT','NODE_ID','NODE_NAME','CROSS_TYPE','INT_TYPE',
-                      'APPR_ID','DIRECTION','APPR_NAME']
+                APPR_ID, DIRECTION, APPR_NAME
+            FROM TOMMS.NODE_DIR_INFO
+        """
+        info_rows = [tuple(r) for r in cursor.execute(sql_info).fetchall()]
+        info_cols = ['CROSS_ID','DISTRICT','NODE_ID','NODE_NAME','CROSS_TYPE','INT_TYPE',
+                    'APPR_ID','DIRECTION','APPR_NAME']
         df_info = pd.DataFrame(info_rows, columns=info_cols)
         for col in ["CROSS_ID","APPR_ID","DIRECTION","CROSS_TYPE"]:
             if col in df_info.columns:
                 df_info[col] = pd.to_numeric(df_info[col], errors="coerce")
 
+        # ✅ 여기서 merge하여 DISTRICT, CROSS_ID를 부여
+        df = df.merge(df_info[['NODE_ID','CROSS_ID','DISTRICT']], on='NODE_ID', how='left')
+
+        # 메타 프레임(기존 로직 유지)
         df_node_meta = df_info.drop_duplicates(subset=['NODE_ID'])[['NODE_ID','NODE_NAME','CROSS_TYPE','INT_TYPE']].set_index('NODE_ID')
         df_appr_meta = df_info[['NODE_ID','APPR_ID','DIRECTION','APPR_NAME']].dropna()
         if 'APPR_ID' in df_appr_meta.columns:
             df_appr_meta['APPR_ID'] = pd.to_numeric(df_appr_meta['APPR_ID'], errors="coerce")
 
-        # 4) 결과 가공
+        # -------------------------------------------- 4) 일일 총 교통량 맵
+        
+        unique_cross_ids = sorted({int(c) for c in df['CROSS_ID'].dropna().astype(int).tolist()})
+        daily_volume_map = {}
+        if unique_cross_ids:
+            placeholders = ",".join(["?"] * len(unique_cross_ids))
+            query = f"""
+                SELECT CROSS_ID, VOL
+                FROM TOMMS.STAT_DAY_CROSS
+                WHERE STAT_DAY = ?
+                AND INFRA_TYPE = 'SMT'
+                AND CROSS_ID IN ({placeholders})
+            """
+            params = [latest_date] + unique_cross_ids
+            cursor.execute(query, params)
+            for cross_id_val, vol_val in cursor.fetchall():
+                c = int(cross_id_val)
+                v = 0
+                if vol_val is not None:
+                    try:
+                        v = int(vol_val)
+                    except Exception:
+                        try:
+                            v = int(float(vol_val))
+                        except Exception:
+                            v = 0
+                daily_volume_map[c] = v
+        
+        # -------------------------------------------- 5) 최신 신호주기 매핑
+
+        signal_cycle_map = {}
+
+        # df에는 이미 NODE_DIR_RESULT + NODE_DIR_INFO merge로 CROSS_ID가 있음
+        try:
+            unique_cross_ids = sorted({int(c) for c in df['CROSS_ID'].dropna().astype(int).tolist()})
+        except Exception:
+            unique_cross_ids = []
+
+        if unique_cross_ids:
+            placeholders = ",".join(["?"] * len(unique_cross_ids))
+            # ROW_NUMBER()로 cross_id마다 최신(INT_CREDATE DESC) 1건만 선택
+            sql_cycle = f"""
+                SELECT INT_LCNO, INT_CYCLE
+                FROM (
+                    SELECT INT_LCNO, INT_CYCLE, INT_CREDATE,
+                        ROW_NUMBER() OVER (PARTITION BY INT_LCNO ORDER BY INT_CREDATE DESC) AS RN
+                    FROM ITS_SCS_L_OPER
+                    WHERE INT_LCNO IN ({placeholders})
+                ) T
+                WHERE T.RN = 1
+            """
+            params = unique_cross_ids
+            cursor.execute(sql_cycle, params)
+            for lcno, cycle in cursor.fetchall():
+                # 키: cross_id(INT_LCNO), 값: 신호주기(INT_CYCLE), 안전 변환
+                try:
+                    key = int(lcno)
+                except Exception:
+                    continue
+                val = None
+                if cycle is not None:
+                    try:
+                        val = int(cycle)
+                    except Exception:
+                        try:
+                            val = int(float(cycle))
+                        except Exception:
+                            val = None
+                if val is not None and val > 0:
+                    signal_cycle_map[key] = val
+
+        # -------------------------------------------- 6) 결과 가공
+        
         nodes = []
 
         for node_id, df_node in df.groupby('NODE_ID'):
@@ -1184,26 +1924,45 @@ def node_approach_result():
             total_delay = round(all_delay_sum / all_delay_count, 1) if all_delay_count > 0 else 0.0
             total_los = get_los(total_delay)
 
+            # [변경] daily_total_vehs 할당
+            
+            daily_total_val = 0
+            if pd.notna(cross_id):
+                try:
+                    daily_total_val = daily_volume_map.get(int(cross_id), 0)
+                except Exception:
+                    daily_total_val = 0
+            
+            # -------------------------------------------- 최신 신호주기 반영
+            
+            signal_cycle_val = 150
+            if pd.notna(cross_id):
+                try:
+                    signal_cycle_val = signal_cycle_map.get(int(cross_id), 150)
+                except Exception:
+                    signal_cycle_val = 150
+
             result_obj = {
                 "node_name": node_name,
                 "cross_id": int(cross_id) if pd.notna(cross_id) else None,
                 "sa_no": sa_no,
                 "cross_type": int(node_meta['CROSS_TYPE']) if pd.notna(node_meta['CROSS_TYPE']) else None,
                 "int_type": node_meta['INT_TYPE'],
-                "daily_total_vehs": 0,           # 필요 시 계산
+                "daily_total_vehs": daily_total_val,
                 "total_vehs": all_vehs_total,
                 "total_delay": total_delay,
                 "total_los": total_los,
-                "signal_circle": 150,            # ✅ 중앙 신호주기(고정값)
+                "signal_circle": signal_cycle_val,
                 "hourly": hourly_items,
                 "time_slices": []
             }
 
-            # --- 구간별 time_slices(4개 고정) ---
+            # -------------------------------------------- 구간별 time_slices(4개 고정)
             for slice_label in ORDERED_SLICES:
                 df_time = df_node[df_node['TIMEINT'] == slice_label].copy()
 
-                # (1) 원시 items: APPR_ID × DIRECTION
+                # -------------------------------------------- (1) 원시 items: APPR_ID × DIRECTION
+                
                 items = []
                 if not df_time.empty:
                     for (appr_id, direction), df_pair in df_time.groupby(['APPR_ID', 'DIRECTION']):
@@ -1227,7 +1986,8 @@ def node_approach_result():
                             "los": los
                         })
 
-                # (2) 접근로 합성: 세 방향 집계 (appr_id 단위)
+                # -------------------------------------------- (2) 접근로 합성
+                
                 appr_summary = []
                 if not df_time.empty:
                     for appr_id, df_ap in df_time.groupby('APPR_ID'):
@@ -1239,7 +1999,7 @@ def node_approach_result():
 
                         vehs_sum = int(df_ap['VEHS'].sum(skipna=True) or 0)
                         dvals = df_ap['DELAY'].dropna().astype(float).tolist()
-                        delay_avg3 = round(sum(dvals) / len(dvals), 1) if dvals else 0.0  # 단순 평균
+                        delay_avg3 = round(sum(dvals) / len(dvals), 1) if dvals else 0.0
                         los3 = get_los(delay_avg3)
 
                         appr_summary.append({
@@ -1250,7 +2010,8 @@ def node_approach_result():
                             "los": los3
                         })
 
-                # (3) 구간 총괄: 모든 접근·방향 합성
+                # -------------------------------------------- (3) 구간 총괄
+                
                 if not df_time.empty:
                     total_vehs_slice = int(df_time['VEHS'].sum(skipna=True) or 0)
                     all_d = df_time['DELAY'].dropna().astype(float).tolist()
@@ -1262,10 +2023,10 @@ def node_approach_result():
                     los_slice = get_los(avg_delay_slice)
 
                 result_obj["time_slices"].append({
-                    "timeint": slice_label,        # '00-15', '15-30', '30-45', '45-00'
-                    "items": items,                # 원시(APPR×DIRECTION)
-                    "appr_summary": appr_summary,  # ✅ 세 방향 집계(접근로 단위)
-                    "slice_summary": {             # ✅ 전체(우측 패널)
+                    "timeint": slice_label,
+                    "items": items,
+                    "appr_summary": appr_summary,
+                    "slice_summary": {
                         "total_vehs": total_vehs_slice,
                         "avg_delay": avg_delay_slice,
                         "los": los_slice
@@ -1281,18 +2042,15 @@ def node_approach_result():
                 "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }), 404
 
-        # 최종 payload
-        payload = {
+        # -------------------------------------------- 최종 payload
+        
+        body = json.dumps({
             "status": "success",
             "label": label,
             "target_date": latest_date,
             "data": nodes
-        }
-
-        # ---- ETag / X-Next-Update / X-Dataset-Date ----
-        body = json.dumps(payload, ensure_ascii=False)
+        }, ensure_ascii=False)
         etag = f'"{hashlib.md5(body.encode("utf-8")).hexdigest()}"'
-
         now_kst = datetime.now(KST)
         next_update = now_kst.replace(hour=6, minute=0, second=0, microsecond=0)
         if now_kst >= next_update:
@@ -1320,12 +2078,21 @@ def node_approach_result():
         resp.headers["X-Next-Update"] = x_next_update
         return resp
 
+    # -------------------------------------------- 종료
+
     except Exception as e:
+        # 클라이언트에는 고정 메시지 + 간단한 에러 문자열만
         return jsonify({
             "status": "fail",
             "message": "노드 접근 결과 조회 중 오류 발생",
             "error": str(e)
         }), 500
+    finally:
+        try:
+            if conn:
+                conn.close()
+        except:
+            pass
 
 
 
@@ -1358,7 +2125,7 @@ def sa_info():
 
 # ========================================================= [ 교통관리 4 - 혼잡교차로 신호최적화 효과검증 ]
 
-@app.route('/management/cross-optimize', methods=['GET'])
+@app.route('/management/signal-optimize', methods=['GET'])
 def cross_optimize():
     pass
 
