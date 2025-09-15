@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>{% block title %}서버 상태 대시보드{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="home-page">
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="brand">강릉시 디지털트윈 시뮬레이션 분석 플랫폼</div>
+    <div class="user-area">
+      <span class="user-greeting">{{ name }}님, 계정이 로그인되어 있습니다.</span>
+      <form action="{{ url_for('logout') }}" method="post" style="display:inline;">
+        <button class="btn btn-outline" type="submit">로그아웃</button>
+      </form>
+    </div>
+  </header>
+
+  <!-- Layout -->
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-title">MENU</div>
+      <nav class="menu">
+        <a class="menu-item {% if active_page=='dashboard' %}active{% endif %}" href="{{ url_for('home_dashboard') }}">
+          HOME
+        </a>
+        <a class="menu-item {% if active_page=='dbspace' %}active{% endif %}" href="{{ url_for('home_db_space') }}">
+          DB 테이블 스페이스 조회
+        </a>
+        <a class="menu-item {% if active_page=='simsearch' %}active{% endif %}" href="{{ url_for('home_sim_search') }}">
+          시뮬레이션 교통 분석 데이터 검색
+        </a>
+        <a class="menu-item {% if active_page=='signalopt' %}active{% endif %}" href="{{ url_for('home_signal_opt') }}">
+          교차로별 신호최적화
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

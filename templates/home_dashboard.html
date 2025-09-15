@@ -1,0 +1,27 @@
+{% extends "home_base.html" %}
+{% block title %}서버 상태 대시보드{% endblock %}
+
+{% block content %}
+  <section class="page-title">
+    <h1>서버 상태 대시보드</h1>
+    <div class="sub">실시간 상태 점검 · 마지막 갱신: {{ last_checked }}</div>
+  </section>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="env-badge">PROD</span>
+      <span class="health">건강도 <strong>100%</strong></span>
+    </div>
+
+    <h3 class="card-title">상태 확인 항목</h3>
+
+    <ul class="status-list">
+      <li><span class="dot ok"></span><span class="label">데이터베이스 연결 상태 확인</span><span class="state ok">정상 동작</span></li>
+      <li><span class="dot ok"></span><span class="label">딥러닝 서버 실행 상태 확인</span><span class="state ok">정상 동작</span></li>
+      <li><span class="dot ok"></span><span class="label">프론트서버 실행 상태 확인</span><span class="state ok">정상 동작</span></li>
+      <li><span class="dot ok"></span><span class="label">백엔드 서버 실행 상태 확인</span><span class="state ok">정상 동작</span></li>
+    </ul>
+
+    <div class="note">* 각 항목 앞의 초록색 원은 서비스의 정상 동작을 의미합니다.</div>
+  </div>
+{% endblock %}

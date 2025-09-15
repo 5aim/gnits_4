@@ -7,13 +7,49 @@
 </head>
 <body>
     <div class="centered-container">
-        <form class="form-box">
-            <h2>Sign Up</h2>
-            <input type="text" placeholder="Username" required><br>
-            <input type="email" placeholder="Email" required><br>
-            <input type="password" placeholder="Password" required><br>
-            <button type="submit">Create Account</button>
-        </form>
+  
+      <!-- flash 메시지 -->
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="form-box" style="margin-bottom:10px;">
+            {% for msg in messages %}
+              <div>{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+  
+      <form class="form-box" method="post" action="{{ url_for('signup') }}">
+        <h2>관리자 회원가입</h2>
+  
+        <!-- ADMIN_ID: 영문 5자↑ 포함, 영문/숫자 -->
+        <input type="text"
+               name="admin_id"
+               placeholder="관리자 아이디 (영문 5자 이상 / 영문 & 숫자 조합)"
+               required
+               pattern="^(?=(?:.*[A-Za-z]){5,})[A-Za-z0-9]+$"
+               title="영문 5자 이상 포함, 영문/숫자만 허용" /><br>
+  
+        <!-- PASSWORD: 8자 이상 (해시는 서버에서 처리) -->
+        <input type="password"
+               name="password"
+               placeholder="비밀번호 (8자 이상)"
+               required
+               minlength="8" /><br>
+  
+        <!-- NAME: 한글만 -->
+        <input type="text"
+               name="name"
+               placeholder="성함 (한글 2~50자)"
+               required
+               pattern="^[가-힣]{2,50}$"
+               title="한글 2~50자만 입력 가능" /><br>
+  
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:15px;">
+          <button type="submit">관리자 계정 생성</button>
+          <a href="{{ url_for('login') }}" class="btn-link"><button type="button">돌아가기</button></a>
+        </div>
+      </form>
     </div>
-</body>
+  </body>
 </html>

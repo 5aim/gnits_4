@@ -203,110 +203,115 @@ class DatabaseManager:
         cols = [col[0] for col in self.cursor.description]
         return rows, cols
 
-    def fetch_and_process_data(self, target_stat_hours: List[str]):
+    def fetch_and_process_data(self, target_stat_hours: List[str]) -> Tuple[Dict[str, List[dict]], Dict[str, List[dict]], str]:
         """
-        입력된 STAT_HOUR(YYYYMMDDHH) 집합에 대해:
-          - STAT_HOUR_CROSS에서 시간대별 자료 수집
-          - 해당 일자(YYYYMMDD)를 모아 STAT_DAY_CROSS에서 일별 자료 수집
-        반환:
-          - traffic_data_by_hour: { "00":[{cross_id, data:[{direction, value}...] }], ... }
-          - traffic_data_by_day : { "YYYYMMDD":[{cross_id, data:[...]}], ... }
-          - query_day: 최초 요청 시각의 YYYYMMDD
+        입력: 동일 날짜의 STAT_HOUR(YYYYMMDDHH) 리스트
+        처리: 시간대별 조회 → 일별(하루) 조회
+        반환: (traffic_data_by_hour, traffic_data_by_day, query_day)
         """
-        # 1) 입력 검증 & 파라미터 구성
-        target_stat_hours = [h for h in target_stat_hours if is_valid_stat_hour(h)]
-        print(f">>>>> ✅ target_stat_hours 변수가 설정되었습니다. : {target_stat_hours}")
-        if not target_stat_hours:
-            print("⛔ 유효한 STAT_HOUR가 없습니다.")
-            return {f"{h:02d}": [] for h in range(24)}, {}, None
 
-        # WHERE (STAT_HOUR = ? OR STAT_HOUR = ? ...)
-        where_clause = " OR ".join(["STAT_HOUR = ?"] * len(target_stat_hours))
+        # ---------- 0) 시간 파라미터 정규화 ----------
+        def _clean_hour(x: str) -> str:
+            return (x or "").strip().strip("'\"")
+
+        hours: List[str] = sorted({h for h in (_clean_hour(h) for h in target_stat_hours) if is_valid_stat_hour(h)})
+        print(f">>>>> ✅ target_stat_hours(clean): {hours}")
+        if not hours:
+            print("⛔ 유효한 STAT_HOUR가 없습니다.")
+            return {f"{h:02d}": [] for h in range(24)}, {}, None  # type: ignore[return-value]
+
+        # ---------- 1) 조회 일자 확정 ----------
+        day: str = hours[0][:8]
+        if not re.fullmatch(r"\d{8}", day):
+            raise ValueError(f"STAT_DAY 형식 오류: {repr(day)}")
+        print(f">>>>> ✅ 조회 일자: {day}")
+
+        # ---------- 2) 시간대별 조회 ----------
+        ph_hours = ", ".join(["?"] * len(hours))
         sql_hour = f"""
             SELECT *
-            FROM STAT_HOUR_CROSS
-            WHERE ({where_clause})
-              AND INFRA_TYPE = 'SMT'
+            FROM TOMMS.STAT_HOUR_CROSS
+            WHERE STAT_HOUR IN ({ph_hours})
+            AND TRIM(UPPER(INFRA_TYPE)) = 'SMT'
         """
+        print(f"🔎 sql_hour params: {[repr(h) for h in hours]}")
+        rows_hour, cols_hour = self._exec(sql_hour, tuple(hours))
+        print(f">>>>> ✅ 시간대별 조회 행수: {len(rows_hour)}")
 
-        # 2) 시간대별 조회
-        rows, cols = self._exec(sql_hour, tuple(target_stat_hours))
-        print(f">>>>> ✅ 시간대별 조회된 행의 갯수입니다. : {len(rows)}")
+        # 컬럼 인덱스 매핑(시간)
+        col_idx_h = {c: i for i, c in enumerate(cols_hour)}
+        idx_stat_hour = col_idx_h["STAT_HOUR"]
+        idx_cross_id_h = col_idx_h["CROSS_ID"]
 
-        col_idx = {c: i for i, c in enumerate(cols)}
-        idx_stat_hour = col_idx["STAT_HOUR"]
-        idx_cross_id  = col_idx["CROSS_ID"]
-
-        vol_names = extract_vol_columns(cols)  # 이름만 추출 후 정렬
-        vol_idx_pairs = [(name, col_idx[name]) for name in vol_names]
+        vol_names_h = extract_vol_columns(cols_hour)
+        vol_idx_pairs_h = [(name, col_idx_h[name]) for name in vol_names_h]
 
         traffic_data_by_hour: Dict[str, List[dict]] = {f"{h:02d}": [] for h in range(24)}
-        stat_days = set()
-
-        for r in rows:
+        for r in rows_hour:
             stat_hour = str(r[idx_stat_hour]).strip()
-            yyyymmdd = stat_hour[:8]
-            stat_days.add(yyyymmdd)
-
             hh = stat_hour[-2:]
-            if hh not in traffic_data_by_hour:
-                print(f"⛔ 예상치 못한 hh 값 발견: {hh}")
-                continue
-
-            cross_id = str(r[idx_cross_id]).strip()
-            traffic_data_by_hour[hh].append({
-                "cross_id": cross_id,
-                "data": [
-                    {"direction": name, "value": to_py(r[idx])}
-                    for name, idx in vol_idx_pairs
-                    if to_py(r[idx]) is not None
-                ]
-            })
-        print(f">>>>> ✅ 시간대별 교통량을 VISUM에 연계하기 위한 가공을 완료하였습니다.")
-
-        # 3) 일별 조회
-        traffic_data_by_day: Dict[str, List[dict]] = {}
-
-        for day in stat_days:
-            sql_day = """
-                SELECT *
-                FROM STAT_DAY_CROSS
-                WHERE STAT_DAY = ?
-                  AND INFRA_TYPE = 'SMT'
-            """
-            rows_day, cols_day = self._exec(sql_day, (day,))
-            col_idx_day = {c: i for i, c in enumerate(cols_day)}
-
-            idx_cross_id_day = col_idx_day["CROSS_ID"]
-            vol_names_day = extract_vol_columns(cols_day)
-            vol_idx_pairs_day = [(name, col_idx_day[name]) for name in vol_names_day]
-
-            items = []
-            for r in rows_day:
-                cross_id = str(r[idx_cross_id_day]).strip()
-                items.append({
+            if hh in traffic_data_by_hour:
+                cross_id = str(r[idx_cross_id_h]).strip()
+                traffic_data_by_hour[hh].append({
                     "cross_id": cross_id,
                     "data": [
                         {"direction": name, "value": to_py(r[idx])}
-                        for name, idx in vol_idx_pairs_day
+                        for name, idx in vol_idx_pairs_h
                         if to_py(r[idx]) is not None
                     ]
                 })
-            traffic_data_by_day[day] = items
+        print(">>>>> ✅ 시간대별 가공 완료.")
 
-        # 4) 요약 출력 (루프 밖에서 한 번만)
-        total_day = sum(len(v) for v in traffic_data_by_day.values())
-        if stat_days:
-            print(f">>>>> ✅ 전일 교통량을 VISUM에 연계하기 위한 가공을 완료하였습니다.")
-            print(f"      ✅ 전일 교통량 총 {total_day}건 ({len(traffic_data_by_day)}일)")
+        # ---------- 3) 일별 조회 (검증된 리터럴, fallback 없음) ----------
+        traffic_data_by_day: Dict[str, List[dict]] = {day: []}
+
+        sql_day = f"""
+            SELECT *
+            FROM TOMMS.STAT_DAY_CROSS
+            WHERE STAT_DAY = '{day}'
+            AND TRIM(UPPER(INFRA_TYPE)) = 'SMT'
+        """
+        print(f"🔎 sql_day(literal): {sql_day.strip()}")
+        rows_day, cols_day = self._exec(sql_day)
+        print(f">>>>> ✅ 일별 조회 행수: {len(rows_day)}")
+
+        if rows_day:
+            col_idx_d = {c: i for i, c in enumerate(cols_day)}
+            idx_cross_id_d = col_idx_d["CROSS_ID"]
+            vol_names_d = extract_vol_columns(cols_day)
+            vol_idx_pairs_d = [(name, col_idx_d[name]) for name in vol_names_d]
+
+            for r in rows_day:
+                cross_id = str(r[idx_cross_id_d]).strip()
+                traffic_data_by_day[day].append({
+                    "cross_id": cross_id,
+                    "data": [
+                        {"direction": name, "value": to_py(r[idx])}
+                        for name, idx in vol_idx_pairs_d
+                        if to_py(r[idx]) is not None
+                    ]
+                })
+        else:
+            # 진단만 남김
+            cnt_sql = f"""
+                SELECT COUNT(*) AS CNT
+                FROM TOMMS.STAT_DAY_CROSS
+                WHERE STAT_DAY = '{day}'
+                AND TRIM(UPPER(INFRA_TYPE)) = 'SMT'
+            """
+            cnt_rows, _ = self._exec(cnt_sql)
+            cnt = cnt_rows[0][0] if cnt_rows else 0
+            print(f"⛔ 일별 0건(카운트={cnt}). fallback 미사용.")
+
+        # ---------- 4) 요약 및 반환 ----------
+        total_day = len(traffic_data_by_day.get(day, []))
+        print(">>>>> ✅ 전일 교통량 가공 완료.")
+        print(f"      ✅ 일별 총 {total_day}건 / 일수=1")
         for hh, lst in traffic_data_by_hour.items():
             if lst:
-                print(f"      ✅ 시간대별 교통량 {hh}시 : {len(lst)}건")
+                print(f"      ✅ 시간대 {hh}시 : {len(lst)}건")
 
-        # 5) 첫 쿼리 기준 day
-        query_day = target_stat_hours[0][:8] if target_stat_hours else None
-
-        return traffic_data_by_hour, traffic_data_by_day, query_day
+        return traffic_data_by_hour, traffic_data_by_day, day
 
     def close(self):
         try:
@@ -550,96 +555,93 @@ class VisumSimulationManager:
     # --------------------------------------------------------------- [ 링크 결과값 추출 ]
     
     def get_links_result_df(self) -> pd.DataFrame:
+        """
+        Visum에서 링크 결과값을 추출해 DataFrame으로 반환.
+        - 추출 컬럼: LINK_ID, vc(VolCapRatioPrT(AP)), vehs(VolVehPrT(AP)), speed(TCur_PrTSys(a))
+        - LINK_ID가 'A, B, C' 같이 쉼표로 합쳐진 경우 개별 행으로 분리하여 동일한 vc/vehs/speed 복제
+        - LINK_ID는 VARCHAR(10)로 가공(트림 후 최대 10자, 빈문자 제외)
+        - STAT_DAY/STAT_HOUR는 여기서 세팅하지 않음(각 INSERT 함수에서 처리)
+        """
         if not self.visum:
             print("⛔ Visum 객체가 없습니다.")
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["LINK_ID", "vc", "vehs", "speed"])
 
         run_type = (self.last_run or {}).get("type")
-        hour_lbl = (self.last_run or {}).get("hour")
         if run_type not in ("prev_day", "hourly"):
             print("⛔ 실행 이력 없음 — simulate 호출 후 사용하세요.")
-            return pd.DataFrame()
+            return pd.DataFrame(columns=["LINK_ID", "vc", "vehs", "speed"])
 
-        stat_day = self._require_stat_day()
-
+        # ▶ 필요한 속성만 추출
         attrs = [
-            "AREA", "SUBAREA", "LINK_ID", "ROAD_NAME", "UPDOWN",
-            "VolCapRatioPrT(AP)", "VolVehPrT(AP)", "TCur_PrTSys(a)",
+            "LINK_ID",
+            "VolCapRatioPrT(AP)",   # → vc
+            "VolVehPrT(AP)",        # → vehs
+            "TCur_PrTSys(a)",       # → speed
         ]
 
         rows = self.visum.Net.Links.GetMultipleAttributes(attrs, True)
 
-        records_expanded, invalid_ids = [], set()
+        records, truncated_ids, empty_ids = [], set(), 0
 
         for row in rows:
             base = dict(zip(attrs, row))
             raw_id = base.get("LINK_ID")
 
-            if not raw_id:  # None, 빈 문자열 등 제외
+            if not raw_id:               # None / 빈문자 → 스킵 카운트
+                empty_ids += 1
                 continue
 
-            # 1) 쉼표 분해 + 트림
-            link_ids = [x.strip() for x in str(raw_id).split(",") if x.strip()]
+            # 1) 쉼표 기준 분리(공백 트림) → 빈 토큰 제거
+            link_ids = [tok.strip() for tok in str(raw_id).split(",") if tok.strip()]
 
-            # 2) 각 link_id별로 한 행씩 복제 (10자리 숫자만 유효)
+            # 2) 각 LINK_ID 별로 한 행씩 복제 (vc/vehs/speed 동일 복제)
             for lid in link_ids:
-                if len(lid) == 10 and lid.isdigit():
-                    rec = base.copy()
-                    rec["LINK_ID"] = lid  # 개별 ID로 치환
-                    records_expanded.append(rec)
-                else:
-                    invalid_ids.add(lid)
+                lid_trim = lid[:10]      # VARCHAR(10) 보장
+                if len(lid) > 10:
+                    truncated_ids.add(lid)
+
+                rec = {
+                    "LINK_ID": lid_trim,
+                    "vc":    base.get("VolCapRatioPrT(AP)"),
+                    "vehs":  base.get("VolVehPrT(AP)"),
+                    "speed": base.get("TCur_PrTSys(a)"),
+                }
+                records.append(rec)
 
         # 데이터프레임 구성
-        df = pd.DataFrame.from_records(records_expanded)
+        df = pd.DataFrame.from_records(records, columns=["LINK_ID", "vc", "vehs", "speed"])
 
         if df.empty:
-            # 그래도 스키마는 유지
-            df = pd.DataFrame(columns=[
-                "AREA", "SUBAREA", "LINK_ID", "ROAD_NAME", "UPDOWN",
-                "vc", "vehs", "speed", "STAT_DAY"
-            ])
-            df["STAT_DAY"] = stat_day
-            print("      📊 DataFrame 크기: 0 행 × {0} 열".format(len(df.columns)))
-            if invalid_ids:
-                print(f"⚠️ 유효하지 않은 LINK_ID 예시(최대 5개): {list(sorted(invalid_ids))[:5]}")
+            print(f"      📊 DataFrame 크기: 0 행 × 4 열 (빈 LINK_ID {empty_ids}건)")
+            if truncated_ids:
+                ex = list(sorted(truncated_ids))[:5]
+                print(f"⚠️ 10자 초과 LINK_ID {len(truncated_ids)}건(예시 최대 5개): {ex}")
             return df
 
-        # 컬럼명 통일 + 숫자형 보정(소수 둘째 자리)
-        df.rename(columns={
-            "VolCapRatioPrT(AP)": "vc",
-            "VolVehPrT(AP)": "vehs",
-            "SUBAREA": "sa",
-            "AREA": "DISTRICT",
-            "TCur_PrTSys(a)": "speed"
-        }, inplace=True)
+        # 숫자형 보정
+        df["vc"]    = pd.to_numeric(df["vc"], errors="coerce")        # float
+        df["vehs"]  = pd.to_numeric(df["vehs"], errors="coerce").fillna(0).astype(int)  # int
+        df["speed"] = pd.to_numeric(df["speed"], errors="coerce")      # float
 
-        df["DISTRICT"]   = pd.to_numeric(df["DISTRICT"], errors="coerce")
-        df["UPDOWN"] = pd.to_numeric(df["UPDOWN"], errors="coerce")
-        df["vc"]     = pd.to_numeric(df["vc"], errors="coerce").round(2)
-        df["vehs"] = pd.to_numeric(df["vehs"], errors="coerce").fillna(0).astype(int)
-        df["speed"]  = pd.to_numeric(df["speed"], errors="coerce").round(2)
+        # LINK_ID 문자열 보정(공백/빈문자 제거 후 None은 드랍)
+        df["LINK_ID"] = df["LINK_ID"].astype(str).str.strip()
+        df = df[df["LINK_ID"] != ""]
 
-        # 문자열 컬럼은 확실히 문자열/None로
-        for c in ("LINK_ID", "sa", "ROAD_NAME"):
-            if c in df.columns:
-                df[c] = df[c].astype(object).where(pd.notna(df[c]), None)
-                df[c] = df[c].map(lambda x: str(x) if x is not None else None)
-
-        # 3) LINK_ID 기준 중복 제거 (첫 등장 행 우선)
+        # LINK_ID 기준 중복 제거 (첫 등장 우선)
         before = len(df)
         df.drop_duplicates(subset=["LINK_ID"], keep="first", inplace=True)
         after = len(df)
 
-        # (선택) 정렬
+        # 정렬
         df.sort_values(by=["LINK_ID"], inplace=True, ignore_index=True)
 
-        df["STAT_DAY"] = stat_day
-
-        print(f"      📊 DataFrame 크기: {len(df)} 행 × {len(df.columns)} 열"
-            f" (중복 제거: {before - after}건)")
-        if invalid_ids:
-            print(f"⚠️ 유효하지 않은 LINK_ID 예시(최대 5개): {list(sorted(invalid_ids))[:5]}")
+        print(
+            f"      📊 DataFrame 크기: {len(df)} 행 × {len(df.columns)} 열"
+            f" (중복 제거: {before - after}건, 빈 LINK_ID: {empty_ids}건)"
+        )
+        if truncated_ids:
+            ex = list(sorted(truncated_ids))[:5]
+            print(f"⚠️ 10자 초과 LINK_ID {len(truncated_ids)}건(예시 최대 5개): {ex}")
 
         return df
 
@@ -697,7 +699,121 @@ class VisumSimulationManager:
 
 
 
+    def read_gpa_file_get_road_link(self, db_conn, gpa_file_path: str, stat_hour: str):
+        """
+            - TDA_ROAD_VOL_INFO.ROAD_ID 전체 조회
+            - gpa_file_path/{ROAD_ID}.gpa 적용
+            - Links에서 ['LINK_ID','전일_용량']만 추출 → 쉼표 분리/10자 제한/빈값 제거
+            - 각 ROAD_ID마다 df 생성, df['STAT_HOUR']=stat_hour 세팅
+            - 곧바로 insert_hour_road_results(df, db_conn, stat_hour, road_id) 호출 (본문은 이후 구현)
+        """
+        if not hasattr(self, "visum") or self.visum is None:
+            print("⛔ Visum 객체가 없습니다. GPA 적용 스킵")
+            return {}
 
+        road_results: dict[str, pd.DataFrame] = {}
+
+        try:
+            cur = db_conn.cursor()
+            cur.execute("SELECT ROAD_ID FROM TOMMS.TDA_ROAD_VOL_INFO")
+            road_ids = [str(r[0]).strip() for r in cur.fetchall() if r and r[0] is not None]
+            road_ids = sorted(set(road_ids))
+            print(f"🔎 GPA 대상 ROAD_ID {len(road_ids)}건")
+
+            missing, failed, applied = [], [], 0
+
+            for rid in road_ids:
+                gpa_file = os.path.join(gpa_file_path, f"{rid}.gpa")  # ROAD_ID가 곧 파일명
+                if not os.path.isabs(gpa_file):
+                    gpa_file = os.path.abspath(gpa_file)
+
+                if not os.path.isfile(gpa_file):
+                    missing.append(gpa_file)
+                    continue
+
+                try:
+                    # 1) GPA 적용
+                    self.visum.Net.GraphicParameters.Open(gpa_file)
+                    applied += 1
+
+                    # 2) 링크 속성 추출
+                    attrs = ["LINK_ID", "전일_용량"]
+                    rows = self.visum.Net.Links.GetMultipleAttributes(attrs, True)
+
+                    # 3) 가공: LINK_ID 분리/정리
+                    records, truncated_ids, empty_ids = [], set(), 0
+                    for row in rows:
+                        base = dict(zip(attrs, row))
+                        raw_id = base.get("LINK_ID")
+                        if not raw_id:
+                            empty_ids += 1
+                            continue
+
+                        link_ids = [tok.strip() for tok in str(raw_id).split(",") if tok.strip()]
+                        for lid in link_ids:
+                            lid_trim = lid[:10]
+                            if len(lid) > 10:
+                                truncated_ids.add(lid)
+                            records.append({
+                                "ROAD_ID": rid,
+                                "LINK_ID": lid_trim,
+                                "전일_용량": base.get("전일_용량"),
+                            })
+
+                    df = pd.DataFrame.from_records(records, columns=["ROAD_ID", "LINK_ID", "전일_용량"])
+                    if df.empty:
+                        print(f"      📊 ROAD_ID={rid} → 0행 (빈 LINK_ID {empty_ids}건)")
+                        if truncated_ids:
+                            ex = list(sorted(truncated_ids))[:5]
+                            print(f"      ⚠️ 10자 초과 LINK_ID {len(truncated_ids)}건(예시≤5): {ex}")
+                        road_results[rid] = df
+                        continue
+
+                    # 숫자/문자 보정
+                    df["전일_용량"] = pd.to_numeric(df["전일_용량"], errors="coerce")
+                    df["LINK_ID"] = df["LINK_ID"].astype(str).str.strip()
+                    df = df[df["LINK_ID"] != ""]
+
+                    # 중복 제거/정렬
+                    before = len(df)
+                    df.drop_duplicates(subset=["LINK_ID"], keep="first", inplace=True)
+                    after = len(df)
+                    df.sort_values(by=["LINK_ID"], inplace=True, ignore_index=True)
+
+                    # 🔵 STAT_HOUR 세팅
+                    df["STAT_HOUR"] = stat_hour
+
+                    print(f"      ✅ ROAD_ID={rid} 결과: {len(df)}행 (중복 {before - after}건, 빈 LINK_ID {empty_ids}건)")
+                    if truncated_ids:
+                        ex = list(sorted(truncated_ids))[:5]
+                        print(f"      ⚠️ 10자 초과 LINK_ID {len(truncated_ids)}건(예시≤5): {ex}")
+
+                    road_results[rid] = df
+
+                    # 👉 여기서 바로 시간대 road 결과 INSERT 호출(본문은 나중 구현)
+                    self.insert_hour_road_results(df, db_conn=db_conn, stat_hour=stat_hour, road_id=rid)
+
+                except Exception as e:
+                    failed.append((gpa_file, str(e)))
+
+            print(f"🖼️ GPA 적용 완료 — 성공 {applied}건 / 미존재 {len(missing)}건 / 실패 {len(failed)}건")
+            if missing:
+                os.makedirs("./output", exist_ok=True)
+                with open("./output/missing_gpa_files.txt", "w", encoding="utf-8") as f:
+                    for p in missing:
+                        f.write(p + "\n")
+                print("📂 미존재 GPA 파일 목록 저장: ./output/missing_gpa_files.txt")
+            if failed:
+                with open("./output/failed_gpa_files.txt", "w", encoding="utf-8") as f:
+                    for p, msg in failed:
+                        f.write(f"{p}\t{msg}\n")
+                print("📂 실패 GPA 파일 목록 저장: ./output/failed_gpa_files.txt")
+
+            return road_results
+
+        except Exception as ex:
+            print(f"⛔ GPA 적용 처리 중 오류: {ex}")
+            return {}
 
     # --------------------------------------------------------------- [ 전일 결과값 insert ]
 
@@ -706,77 +822,94 @@ class VisumSimulationManager:
             print("⛔ 전일 INSERT: DF/DB 누락")
             return 0
 
-        required = ["STAT_DAY","LINK_ID","DISTRICT","SA_NO","ROAD_NAME","UPDOWN","VC","VEHS","SPEED"]
+        # 최종 스키마(순서 고정)
+        required = ["STAT_DAY", "LINK_ID", "VC", "VEHS", "SPEED"]
 
-        # 1) 준비 및 불필요 컬럼 제거
+        # 1) 준비: 불필요 컬럼 제거
         work = df.copy()
         for c in ("run_type", "hour"):
             if c in work.columns:
                 work.drop(columns=[c], inplace=True)
 
-        # 2) 스키마 컬럼명 맞춤 + STAT_DAY 세팅
-        work.rename(columns={"sa": "SA_NO", "vc": "VC", "vehs": "VEHS", "speed": "SPEED"}, inplace=True)
-        work["STAT_DAY"] = self._require_stat_day()
+        # 2) 컬럼명 통일 + STAT_DAY 세팅
+        rename_map = {"vc": "VC", "vehs": "VEHS", "speed": "SPEED", "link_id": "LINK_ID"}
+        work.rename(columns={k: v for k, v in rename_map.items() if k in work.columns}, inplace=True)
+        stat_day = self._require_stat_day()  # 'YYYYMMDD'
+        work["STAT_DAY"] = stat_day
 
-        # 3) 숫자형 보정
-        #    - DISTRICT, UPDOWN, VEHS: 정수형 (nullable Int64)
-        #    - VC: float(그대로), SPEED: 숫자화 + 360000 이상은 0
-        work["DISTRICT"]   = pd.to_numeric(work.get("DISTRICT"), errors="coerce").astype("Int64")
-        work["UPDOWN"] = pd.to_numeric(work.get("UPDOWN"), errors="coerce").astype("Int64")
-        work["VEHS"] = pd.to_numeric(work.get("VEHS"), errors="coerce").astype("Int64")
+        # 3) 타입 보정
+        if "LINK_ID" in work.columns:
+            work["LINK_ID"] = (
+                work["LINK_ID"].astype(str).str.strip()
+                .map(lambda x: x if x != "" else None)
+                .map(lambda x: x[:10] if x is not None else None)
+            )
         if "VC" in work.columns:
             work["VC"] = pd.to_numeric(work["VC"], errors="coerce")
+        if "VEHS" in work.columns:
+            work["VEHS"] = pd.to_numeric(work["VEHS"], errors="coerce").astype("Int64")
         if "SPEED" in work.columns:
             work["SPEED"] = pd.to_numeric(work["SPEED"], errors="coerce")
-            work.loc[work["SPEED"] >= 360000, "SPEED"] = 0  # 비정상 속도값 방지
+            work.loc[work["SPEED"] >= 360000, "SPEED"] = 0  # 이상치 컷(옵션)
 
-        # 4) 문자열 컬럼: 공백/빈문자 -> None
-        def _str_or_none(x):
-            if pd.isna(x):
-                return None
-            s = str(x).strip()
-            return s if s != "" else None
-
-        for c in ("LINK_ID", "SA_NO", "ROAD_NAME"):
-            if c in work.columns:
-                work[c] = work[c].map(_str_or_none)
-
-        # 길이 제한(스키마 보호)
-        if "ROAD_NAME" in work.columns:
-            work["ROAD_NAME"] = work["ROAD_NAME"].map(lambda x: x[:200] if x is not None else None)
-        if "LINK_ID" in work.columns:
-            work["LINK_ID"] = work["LINK_ID"].map(lambda x: x[:400] if x is not None else None)
-        if "SA_NO" in work.columns:
-            work["SA_NO"] = work["SA_NO"].map(lambda x: x[:10]  if x is not None else None)
-
-        # 5) 필수 컬럼 체크 + 정렬
+        # 4) 필수 컬럼 체크 + 정렬
         missing = [c for c in required if c not in work.columns]
         if missing:
             print(f"⛔ 필수 컬럼 누락: {missing}")
             return 0
-        work = work[required]  # 열 정렬만 수행, 행 필터링 없음
+        work = work[required]
 
-        # 6) 파라미터 바인딩용 Python 기본형으로 변환
+        # 5) NULL LINK_ID 제거
+        before = len(work)
+        work = work[work["LINK_ID"].notna()]
+        if before != len(work):
+            print(f"⚠️ LINK_ID NULL {before - len(work)}행 제거")
+
+        # 6) FK 사전검사: TDA_LINK_INFO에 존재하는 LINK_ID만 남김
+        cur = db_conn.cursor()
+        unique_ids = sorted(set(work["LINK_ID"].tolist()))
+        valid_ids = set()
+        if unique_ids:
+            BATCH = 900  # placeholder 제한 대비
+            for i in range(0, len(unique_ids), BATCH):
+                batch = unique_ids[i:i + BATCH]
+                placeholders = ", ".join(["?"] * len(batch))
+                sql_chk = f"SELECT LINK_ID FROM TOMMS.TDA_LINK_INFO WHERE LINK_ID IN ({placeholders})"
+                cur.execute(sql_chk, batch)
+                valid_ids.update(r[0] for r in cur.fetchall())
+
+        missing_ids = sorted(set(unique_ids) - valid_ids)
+        if missing_ids:
+            print(f"⚠️ FK 미존재 LINK_ID {len(missing_ids)}건 — INSERT 제외 (예시 10개): {missing_ids[:10]}")
+            os.makedirs("./output", exist_ok=True)
+            miss_path = f"./output/missing_day_link_ids_{stat_day}.txt"
+            with open(miss_path, "w", encoding="utf-8") as f:
+                for lid in missing_ids:
+                    f.write(str(lid) + "\n")
+            print(f"📂 미존재 LINK_ID 목록 저장: {miss_path}")
+
+        work = work[work["LINK_ID"].isin(valid_ids)]
+        if work.empty:
+            print("⛔ 유효 LINK_ID가 없어 INSERT 스킵")
+            return 0
+
+        # 7) DB 바인딩 값 변환
         def _to_db_value(v):
-            # pandas NA -> None
             if v is pd.NA:
                 return None
-            # numpy -> python 기본형
             if isinstance(v, np.generic):
                 v = v.item()
-            # float NaN -> None
             if isinstance(v, float) and (pd.isna(v) or np.isnan(v)):
                 return None
             return v
 
-        # Tibero(오라클 호환)에서 파라미터에 Python None을 넘기면 DB의 NULL로 들어간다.
-        sql = f"INSERT INTO TOMMS.DAY_LINK_RESULT ({', '.join(required)}) VALUES ({', '.join(['?']*len(required))})"
-        cur = db_conn.cursor()
-        cur.fast_executemany = False
+        # 8) INSERT 준비
+        sql = f"INSERT INTO TOMMS.TDA_LINK_DAY_RESULT ({', '.join(required)}) VALUES ({', '.join(['?']*len(required))})"
+        cur.fast_executemany = True  # 배치 성능
 
-        # 7) SQL 로그 저장(검증용)
+        # 9) SQL 로그 저장(검증용)
         os.makedirs("./output", exist_ok=True)
-        sql_log_path = "./output/day_link_result_insert.sql.txt"
+        sql_log_path = f"./output/day_link_result_insert_{stat_day}.sql.txt"
 
         def _sql_literal(v):
             if v is None:
@@ -784,11 +917,9 @@ class VisumSimulationManager:
             if isinstance(v, (int, np.integer)):
                 return str(int(v))
             if isinstance(v, (float, np.floating)):
-                # 소수점 표현 안정화
                 return str(float(v))
-            # 문자열 이스케이프
             s = str(v).replace("'", "''")
-            return "'" + s + "'"
+            return f"'{s}'"
 
         total = 0
         try:
@@ -801,23 +932,24 @@ class VisumSimulationManager:
                     for row in data:
                         values_str = [_sql_literal(v) for v in row]
                         f_log.write(
-                            f"INSERT INTO TOMMS.DAY_LINK_RESULT ({', '.join(required)}) VALUES ({', '.join(values_str)});\n"
+                            f"INSERT INTO TOMMS.TDA_LINK_DAY_RESULT ({', '.join(required)}) VALUES ({', '.join(values_str)});\n"
                         )
 
                     cur.executemany(sql, data)
                     total += len(data)
 
             db_conn.commit()
-            print(f"      ✅ DAY_LINK_RESULT INSERT — {total}행")
+            print(f"      ✅ TDA_LINK_DAY_RESULT INSERT — {total}행 (STAT_DAY={stat_day})")
             print(f"      📂 SQL 로그 저장: {sql_log_path}")
+
             return total
 
         except Exception as ex:
             db_conn.rollback()
-            print(f"⛔ DAY_LINK_RESULT INSERT 오류 — 롤백: {ex}")
+            print(f"⛔ TDA_LINK_DAY_RESULT INSERT 오류 — 롤백: {ex}")
             print(f"📂 SQL 로그(실패 시점까지): {sql_log_path}")
             return 0
-
+    
     # --------------------------------------------------------------- [ 전일 시뮬레이션 파이프라인 ]
     
     def run_prev_day_pipeline(self, day_payload, db_conn=None, preferred_day: str | None = None):
@@ -847,6 +979,7 @@ class VisumSimulationManager:
             f"last_run 불일치: {self.last_run}"
 
         df = self.get_links_result_df()
+        
         self.insert_day_link_results(df, db_conn=db.conn)
 
         print(">>>>> ✅ 전일 시뮬레이션 완료")
@@ -858,13 +991,14 @@ class VisumSimulationManager:
             print("⛔ 시간대 INSERT: DF/DB 누락")
             return 0
 
-        stat_day = self._require_stat_day()
-        hour_lbl = (self.last_run or {}).get("hour")
+        stat_day = self._require_stat_day()              # 'YYYYMMDD'
+        hour_lbl = str((self.last_run or {}).get("hour") or "").zfill(2)
         if not hour_lbl:
             print("⛔ last_run.hour 없음 — simulate_hour 이후 호출 필요")
             return 0
+        stat_hour = stat_day + hour_lbl                  # 'YYYYMMDDHH'
 
-        required = ["STAT_HOUR","LINK_ID","DISTRICT","SA_NO","ROAD_NAME","UPDOWN","VC","VEHS","SPEED"]
+        required = ["STAT_HOUR", "LINK_ID", "VC", "VEHS", "SPEED"]
 
         # 1) 작업용 복사 & 불필요 컬럼 제거
         work = df.copy()
@@ -872,50 +1006,72 @@ class VisumSimulationManager:
             if c in work.columns:
                 work.drop(columns=[c], inplace=True)
 
-        # 2) 스키마 컬럼명 정리 + STAT_HOUR 세팅
-        work.rename(columns={"sa": "SA_NO", "vc": "VC", "vehs": "VEHS", "speed": "SPEED"}, inplace=True)
-        work["STAT_HOUR"] = stat_day + hour_lbl  # 예: 2025070109
+        # 2) 컬럼명 통일 + STAT_HOUR 세팅
+        work.rename(columns={
+            "link_id": "LINK_ID",
+            "vc": "VC",
+            "vehs": "VEHS",
+            "speed": "SPEED",
+        }, inplace=True)
+        work["STAT_HOUR"] = stat_hour
 
-        # 3) 숫자형 보정
-        #    - DISTRICT/UPDOWN/VEHS: nullable 정수(Int64)
-        #    - VC: float 그대로(라운딩/스케일링 없음)
-        #    - SPEED: 숫자화 + (>=360000 → 0), 그 외 원본
-        work["DISTRICT"]   = pd.to_numeric(work.get("DISTRICT"), errors="coerce").astype("Int64")
-        work["UPDOWN"] = pd.to_numeric(work.get("UPDOWN"), errors="coerce").astype("Int64")
-        work["VEHS"] = pd.to_numeric(work.get("VEHS"), errors="coerce").astype("Int64")
+        # 3) 타입 보정
+        if "LINK_ID" in work.columns:
+            work["LINK_ID"] = (
+                work["LINK_ID"].astype(str).str.strip()
+                .map(lambda x: x if x != "" else None)
+                .map(lambda x: x[:10] if x is not None else None)
+            )
         if "VC" in work.columns:
             work["VC"] = pd.to_numeric(work["VC"], errors="coerce")
+        if "VEHS" in work.columns:
+            work["VEHS"] = pd.to_numeric(work["VEHS"], errors="coerce").astype("Int64")
         if "SPEED" in work.columns:
             work["SPEED"] = pd.to_numeric(work["SPEED"], errors="coerce")
             work.loc[work["SPEED"] >= 360000, "SPEED"] = 0
 
-        # 4) 문자열: 공백 제거 후 빈 값은 None
-        def _str_or_none(x):
-            if pd.isna(x):
-                return None
-            s = str(x).strip()
-            return s if s != "" else None
-
-        for c in ("LINK_ID", "SA_NO", "ROAD_NAME"):
-            if c in work.columns:
-                work[c] = work[c].map(_str_or_none)
-
-        # 길이 제한(스키마 보호)
-        if "ROAD_NAME" in work.columns:
-            work["ROAD_NAME"] = work["ROAD_NAME"].map(lambda x: x[:200] if x is not None else None)
-        if "LINK_ID" in work.columns:
-            work["LINK_ID"] = work["LINK_ID"].map(lambda x: x[:400] if x is not None else None)
-        if "SA_NO" in work.columns:
-            work["SA_NO"] = work["SA_NO"].map(lambda x: x[:10]  if x is not None else None)
-
-        # 5) 필수 컬럼 체크 + 컬럼 정렬(행 필터링 없음)
+        # 4) 필수 컬럼 체크 + 정렬
         missing = [c for c in required if c not in work.columns]
         if missing:
             print(f"⛔ 필수 컬럼 누락: {missing}")
             return 0
         work = work[required]
 
-        # 6) 파라미터 바인딩용 Python 기본형으로 변환 (pandas/NumPy → 기본형, NA/NaN → None)
+        # 5) NULL LINK_ID 제거
+        before = len(work)
+        work = work[work["LINK_ID"].notna()]
+        if before != len(work):
+            print(f"⚠️ LINK_ID NULL {before - len(work)}행 제거")
+
+        # 6) FK 사전검사: TDA_LINK_INFO에 존재하는 LINK_ID만 남김
+        cur = db_conn.cursor()
+        unique_ids = sorted(set(work["LINK_ID"].tolist()))
+        valid_ids = set()
+        if unique_ids:
+            BATCH = 900  # placeholder 제한 대비
+            for i in range(0, len(unique_ids), BATCH):
+                batch = unique_ids[i:i + BATCH]
+                placeholders = ", ".join(["?"] * len(batch))
+                sql_chk = f"SELECT LINK_ID FROM TOMMS.TDA_LINK_INFO WHERE LINK_ID IN ({placeholders})"
+                cur.execute(sql_chk, batch)
+                valid_ids.update(r[0] for r in cur.fetchall())
+
+        missing_ids = sorted(set(unique_ids) - valid_ids)
+        if missing_ids:
+            print(f"⚠️ FK 미존재 LINK_ID {len(missing_ids)}건 — INSERT 대상에서 제외 (예시 10개): {missing_ids[:10]}")
+            os.makedirs("./output", exist_ok=True)
+            miss_path = f"./output/missing_link_ids_{stat_hour}.txt"
+            with open(miss_path, "w", encoding="utf-8") as f:
+                for lid in missing_ids:
+                    f.write(str(lid) + "\n")
+            print(f"📂 미존재 LINK_ID 목록 저장: {miss_path}")
+
+        work = work[work["LINK_ID"].isin(valid_ids)]
+        if work.empty:
+            print("⛔ 유효 LINK_ID가 없어 INSERT 스킵")
+            return 0
+
+        # 7) 파라미터 바인딩 값 변환
         def _to_db_value(v):
             if v is pd.NA:
                 return None
@@ -925,27 +1081,169 @@ class VisumSimulationManager:
                 return None
             return v
 
-        sql = f"INSERT INTO TOMMS.HOUR_LINK_RESULT ({', '.join(required)}) VALUES ({', '.join(['?']*len(required))})"
-        cur = db_conn.cursor()
+        # 8) INSERT
+        sql = f"INSERT INTO TOMMS.TDA_LINK_HOUR_RESULT ({', '.join(required)}) VALUES ({', '.join(['?']*len(required))})"
         cur.fast_executemany = True
 
         total = 0
         try:
             for s in range(0, len(work), chunk_size):
-                chunk = work.iloc[s:s+chunk_size]
+                chunk = work.iloc[s:s + chunk_size]
                 data = [tuple(_to_db_value(v) for v in row) for row in chunk.itertuples(index=False, name=None)]
                 cur.executemany(sql, data)
                 total += len(data)
 
             db_conn.commit()
-            print(f"      ✅ HOUR_LINK_RESULT INSERT — {stat_day+hour_lbl} {total}행")
+            print(f"      ✅ TDA_LINK_HOUR_RESULT INSERT — {stat_hour} {total}행")
             return total
 
         except Exception as ex:
             db_conn.rollback()
-            print(f"⛔ HOUR_LINK_RESULT INSERT 오류 — 롤백: {ex}")
+            print(f"⛔ TDA_LINK_HOUR_RESULT INSERT 오류 — 롤백: {ex}")
+            return 0
+    
+    # --------------------------------------------------------------- [ 시간대별 road_id 결과값 insert ]
+    
+    def insert_hour_road_results(
+        self,
+        df: pd.DataFrame,
+        db_conn,
+        stat_hour: str,
+        road_id: str,
+        chunk_size: int = 20000,
+    ) -> int:
+        """
+        TDA_ROAD_HOUR_RESULT 스키마
+        - STAT_HOUR (VARCHAR10, NN)
+        - ROAD_ID   (VARCHAR10, NN)
+        - LINK_ID   (VARCHAR10,  Y)  # 하지만 LINK_ID 없는 행은 여기서 드롭
+        - FB_VEHS   (NUMBER(9),  Y)  # '전일_용량' 매핑
+        """
+        if df is None or df.empty or db_conn is None:
+            print("⛔ ROAD HOUR INSERT: DF/DB 누락")
             return 0
 
+        # 0) 결과 테이블명
+        table = "TOMMS.TDA_ROAD_VOL_HOUR_RESULT"
+
+        # 1) 스키마 정규화
+        work = df.copy()
+
+        # 컬럼명 통일: 전일_용량 → FB_VEHS, link_id→LINK_ID 등
+        work.rename(columns={
+            "전일_용량": "FB_VEHS",
+            "link_id": "LINK_ID",
+            "stat_hour": "STAT_HOUR",
+            "road_id": "ROAD_ID",
+        }, inplace=True)
+
+        # 파라미터로 받은 STAT_HOUR/ROAD_ID를 강제 세팅 (신뢰원 통일)
+        work["STAT_HOUR"] = str(stat_hour)
+        work["ROAD_ID"]   = str(road_id)
+
+        # 필요 컬럼만 유지 (순서 고정)
+        required = ["STAT_HOUR", "ROAD_ID", "LINK_ID", "FB_VEHS"]
+        for c in required:
+            if c not in work.columns:
+                work[c] = pd.Series(dtype="object")  # 누락 컬럼 생성
+        work = work[required]
+
+        # 2) 타입 보정
+        # LINK_ID: 문자열 10자, 공백/빈문자 None
+        work["LINK_ID"] = (
+            work["LINK_ID"].astype(str).str.strip()
+            .map(lambda x: None if x == "" or x.lower() == "none" else x[:10])
+        )
+        # FB_VEHS: 정수(Int64)로
+        work["FB_VEHS"] = pd.to_numeric(work["FB_VEHS"], errors="coerce").astype("Int64")
+
+        # 3) LINK_ID 없는 행 제거(요구사항: 값이 없으면 모두 날림)
+        before = len(work)
+        work = work[work["LINK_ID"].notna()]
+        if before != len(work):
+            print(f"⚠️ LINK_ID NULL {before - len(work)}행 제거 (ROAD_ID={road_id}, STAT_HOUR={stat_hour})")
+
+        if work.empty:
+            print(f"⛔ INSERT 스킵 — 유효행 0 (ROAD_ID={road_id}, STAT_HOUR={stat_hour})")
+            return 0
+
+        # 4) FK 사전검사: TDA_LINK_INFO(LINK_ID)
+        cur = db_conn.cursor()
+        unique_ids = sorted(set(work["LINK_ID"].tolist()))
+        valid_ids = set()
+        if unique_ids:
+            BATCH = 900
+            for i in range(0, len(unique_ids), BATCH):
+                batch = unique_ids[i:i+BATCH]
+                placeholders = ", ".join(["?"] * len(batch))
+                sql_chk = f"SELECT LINK_ID FROM TOMMS.TDA_LINK_INFO WHERE LINK_ID IN ({placeholders})"
+                cur.execute(sql_chk, batch)
+                valid_ids.update(r[0] for r in cur.fetchall())
+        missing_ids = sorted(set(unique_ids) - valid_ids)
+        if missing_ids:
+            print(f"⚠️ LINK_ID FK 미존재 {len(missing_ids)}건 — 제외 (예시≤10): {missing_ids[:10]}")
+            os.makedirs("./output", exist_ok=True)
+            miss_path = f"./output/missing_hour_road_link_ids_{stat_hour}_{road_id}.txt"
+            with open(miss_path, "w", encoding="utf-8") as f:
+                for lid in missing_ids:
+                    f.write(str(lid) + "\n")
+            print(f"📂 FK 미존재 LINK_ID 저장: {miss_path}")
+        work = work[work["LINK_ID"].isin(valid_ids)]
+
+        if work.empty:
+            print(f"⛔ INSERT 스킵 — FK 유효행 0 (ROAD_ID={road_id}, STAT_HOUR={stat_hour})")
+            return 0
+
+        # 5) 바인딩 값 변환
+        def _to_db_value(v):
+            if v is pd.NA:
+                return None
+            if isinstance(v, np.generic):
+                v = v.item()
+            if isinstance(v, float) and (pd.isna(v) or np.isnan(v)):
+                return None
+            return v
+
+        # 6) INSERT
+        sql = f"INSERT INTO {table} ({', '.join(required)}) VALUES ({', '.join(['?']*len(required))})"
+        cur.fast_executemany = True
+
+        # (선택) SQL 로그
+        os.makedirs("./output", exist_ok=True)
+        log_path = f"./output/road_hour_result_insert_{stat_hour}_{road_id}.sql.txt"
+        def _sql_literal(v):
+            if v is None: return "NULL"
+            if isinstance(v, (int, np.integer)): return str(int(v))
+            if isinstance(v, (float, np.floating)): return str(float(v))
+            s = str(v).replace("'", "''"); return f"'{s}'"
+
+        total = 0
+        try:
+            with open(log_path, "w", encoding="utf-8") as f_log:
+                for s in range(0, len(work), chunk_size):
+                    chunk = work.iloc[s:s+chunk_size]
+                    data = [tuple(_to_db_value(v) for v in row) for row in chunk.itertuples(index=False, name=None)]
+                    # 로그용 SQL
+                    for row in data:
+                        values_str = [_sql_literal(v) for v in row]
+                        f_log.write(
+                            f"INSERT INTO {table} ({', '.join(required)}) "
+                            f"VALUES ({', '.join(values_str)});\n"
+                        )
+                    cur.executemany(sql, data)
+                    total += len(data)
+
+            db_conn.commit()
+            print(f"      ✅ ROAD_HOUR_RESULT INSERT — STAT_HOUR={stat_hour}, ROAD_ID={road_id}, 행수={total}")
+            print(f"      📂 SQL 로그: {log_path}")
+            return total
+
+        except Exception as ex:
+            db_conn.rollback()
+            print(f"⛔ ROAD_HOUR_RESULT INSERT 오류 — 롤백: {ex}")
+            print(f"📂 SQL 로그(실패 시점까지): {log_path}")
+            return 0
+    
     # --------------------------------------------------------------- [ 시간대별 시뮬레이션 파이프라인 ]
 
     def run_hourly_pipeline(self, hourly_payload_map: dict, db_conn=None):
@@ -953,7 +1251,12 @@ class VisumSimulationManager:
         고정 순서: 08 → 11 → 14 → 17
         STAT_DAY는 이미 ensure_stat_day/set_stat_day로 확정되어 있어야 함.
         """
+        
+        # 🔵 GPA 파일 경로 지정
+        gpa_file_path = r"C:\Digital Twin Simulation Network\VISUM\gpa_file"
+        
         self._require_stat_day()
+        stat_day = self.last_run['stat_day']
         print(f">>>>> ✅ 시간대 교통량 연계 시뮬레이션 시작\n      STAT_DAY={self.last_run['stat_day']}")
 
         for hh in [8, 11, 14, 17]:
@@ -972,6 +1275,12 @@ class VisumSimulationManager:
 
             df = self.get_links_result_df()
             self.insert_hour_link_results(df, db_conn=db.conn)
+            
+            # 🔵 INSERT 이후: GPA 파일 적용
+            stat_hour = f"{stat_day}{key}"
+            if gpa_file_path:
+                pass
+                # self.read_gpa_file_get_road_link(db_conn, gpa_file_path, stat_hour)
 
         print(">>>>> ✅ 시간대별 시뮬레이션 완료")
 
@@ -987,13 +1296,36 @@ class VisumSimulationManager:
 
 # ====================================================================================== [ main 실행함수 ]
 
+class DualLogger:
+    def __init__(self, file_path):
+        self.terminal = sys.stdout
+        self.log = open(file_path, "a", encoding="utf-8")
+
+    def write(self, message):
+        self.terminal.write(message)   # 콘솔 출력
+        self.log.write(message)        # 파일 기록
+
+    def flush(self):
+        self.terminal.flush()
+        self.log.flush()
+
 if __name__ == "__main__":
-    
+    # 로그 폴더 생성
+    log_dir = r"C:\Digital Twin Simulation Program\auto simulation\logs"
+    os.makedirs(log_dir, exist_ok=True)
+
+    # 파일명: 날짜+시간 접두어
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"{ts}_visum_simulation.log")
+
+    # dual logger 세팅
+    sys.stdout = DualLogger(log_file)
+
     print(">>>>> ✅ VISUM 자동화 시뮬레이션을 시작합니다.")
-    USE_FIXED_TIME = True # 실시간 단위로 변경하려면 이 값을 False로 설정.
-    
+    USE_FIXED_TIME = True  # 실시간 단위로 변경하려면 False
+
     if USE_FIXED_TIME:
-        fixed_now = datetime.datetime.strptime("2025070204", "%Y%m%d%H")
+        fixed_now = datetime.datetime.strptime("2025070201", "%Y%m%d%H")
         query_day, target_stat_hours = compute_target_hours(fixed_now, ["08", "11", "14", "17"])
     else:
         query_day, target_stat_hours = compute_target_hours(None, ["08", "11", "14", "17"])
@@ -1006,31 +1338,30 @@ if __name__ == "__main__":
     try:
         print(">>>>> ✅ 교통량 데이터 조회를 시작합니다.")
         traffic_by_hour, traffic_by_day, query_day_from_db = db.fetch_and_process_data(target_stat_hours)
-        
-        # query_day 우선순위: DB에서 유추한 값이 있으면 그걸 사용
+
         stat_day_final = query_day_from_db or query_day
-        
+
         vis = VisumSimulationManager(
             base_path=r"C:/Digital Twin Simulation network/VISUM",
             default_version_name="강릉시 전국 전일 최종본.ver",
             prev_day_proc_no=22,
             csv_out_dir=r"C:/Digital Twin Simulation network/VISUM/result_export",
         )
-        
+
         print(">>>>> ✅ Visum 클래스가 선언되어 main 함수 내 설정이 완료되었습니다.")
 
         # 4) Visum open & load
-        vis.open()  # default_version_name 사용
-        vis.set_stat_day(stat_day_final)  # ★ 기준일 확정(한 번만)
+        vis.open()
+        vis.set_stat_day(stat_day_final)
 
         # 5) 전일 파이프라인
-        vis.run_prev_day_pipeline(traffic_by_day, db_conn=db.conn, preferred_day=stat_day_final) # traffic_by_day: {"YYYYMMDD": [ ... ]} 구조
+        vis.run_prev_day_pipeline(traffic_by_day, db_conn=db.conn, preferred_day=stat_day_final)
 
-        # 6) 시간대 파이프라인(08→11→14→17)
-        vis.run_hourly_pipeline(traffic_by_hour, db_conn=db.conn) # traffic_by_hour: {"00":[...], ..., "23":[...]}
+        # 6) 시간대 파이프라인
+        vis.run_hourly_pipeline(traffic_by_hour, db_conn=db.conn)
 
     finally:
-        # 7) 마무리
         if 'vis' in locals():
             vis.close()
         db.close()
+        print(f"📂 로그 저장 완료 → {log_file}")

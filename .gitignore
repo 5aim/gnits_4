@@ -4,6 +4,7 @@
 
 ### Custom ###
 output/
+deeplearning.py
 
 # === Python Library
 library_download/
@@ -17,6 +18,8 @@ tibero_insert_vol_sql.py
 # === 지점 영상
 static/video
 
+# === 딥러닝 관련
+gndl/gnn_data
 
 
 

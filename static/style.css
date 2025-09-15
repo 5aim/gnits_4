@@ -1,7 +1,17 @@
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     height: 100%;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    background: url("/static/image/login_background.jpg") no-repeat center center fixed;
+    background-size: cover;
     font-family: Arial, sans-serif;
 }
 
@@ -16,10 +26,18 @@ body, html {
     width: 80%;
     max-width: 400px;
     padding: 20px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
     text-align: center;
-    background-color: #f9f9f9;
+    background-color: rgba(255, 255, 255, 0.3);
     border-radius: 8px;
+}
+
+.form-box .button-group {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    /* 버튼 사이 간격 */
+    margin-top: 10px;
 }
 
 input {
@@ -31,7 +49,7 @@ input {
 
 button {
     padding: 10px 20px;
-    background-color: #007bff;
+    background-color: rgba(255, 127, 57, 0.6);
     border: none;
     color: white;
     border-radius: 4px;
@@ -39,5 +57,238 @@ button {
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: rgba(255, 127, 57, 0.8);
+}
+
+
+
+
+/* =========================
+   Home Page (Dashboard)
+   ========================= */
+.home-page {
+    /* 홈 화면은 배경 이미지를 쓰지 않고 밝은 회색 바탕 */
+    background: #f5f7fb;
+    min-height: 100vh;
+    margin: 0;
+    color: #111827;
+    font-family: Arial, sans-serif;
+}
+
+.home-page .topbar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 0 18px;
+    background: #eef2f7;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.home-page .brand {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.home-page .user-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.home-page .btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.home-page .btn-outline {
+    border: 1px solid #cbd5e1;
+    color: #111827;
+    background: white;
+}
+
+.home-page .btn-outline:hover {
+    background: #f8fafc;
+}
+
+.home-page .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: calc(100vh - 56px);
+    gap: 24px; /* 사이드바와 콘텐츠 사이 여백 */
+}
+
+.home-page .sidebar {
+    background: #f1f3f5;
+    border-right: 1px solid #e2e8f0;
+    padding: 12px 10px;
+    min-width: 260px;   /* 최소 너비 */
+    max-width: 280px;   /* 최대 너비 */
+  }
+
+.home-page .sidebar-title {
+    font-weight: 700;
+    text-align: center;
+    padding: 10px 0;
+    margin-bottom: 8px;
+    border: 1px solid #f1f3f5;
+    border-radius: 6px;
+    background: #f1f3f5;
+}
+
+.home-page .menu {
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+}
+
+.home-page .menu-item {
+    display: block;
+    padding: 12px 8px;
+    text-decoration: none;
+    color: #111827;
+    background: none;        /* 배경 제거 */
+    border: none;            /* 테두리 제거 */
+    border-bottom: 1px solid #e2e8f0;  /* 줄로 구분 */
+    margin: 0;               /* 버튼처럼 보이던 margin 제거 */
+  }
+  
+  .home-page .menu-item:last-child {
+    border-bottom: none;     /* 마지막 줄 밑에는 선 없음 */
+  }
+  
+  .home-page .menu-item:hover {
+    background: #f8fafc;     /* hover 시만 살짝 배경 */
+  }
+
+  .home-page .content {
+    padding: 24px;
+    overflow: auto;
+    background: #f5f7fb; /* 배경색 통일 */
+}
+
+.home-page .page-title h1 {
+    font-size: 36px;
+    margin: 0;
+}
+
+.home-page .page-title .sub {
+    color: #6b7280;
+    margin-top: 6px;
+}
+
+.home-page .card {
+    margin-top: 18px;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
+    padding: 22px 22px 26px;
+}
+
+.home-page .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.home-page .env-badge {
+    font-size: 12px;
+    font-weight: 800;
+    background: #d1fae5;
+    /* light green */
+    color: #065f46;
+    /* dark green */
+    border-radius: 999px;
+    padding: 6px 10px;
+}
+
+.home-page .health {
+    color: #6b7280;
+}
+
+.home-page .card-title {
+    margin: 14px 0 10px 0;
+    font-size: 20px;
+}
+
+.home-page .status-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 8px 0;
+    border-top: 1px solid #eef2f7;
+}
+
+.home-page .status-list li {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.home-page .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.home-page .dot.ok {
+    background: #22c55e;
+}
+
+/* green */
+.home-page .dot.warn {
+    background: #f59e0b;
+}
+
+/* amber */
+.home-page .dot.err {
+    background: #ef4444;
+}
+
+/* red */
+
+.home-page .label {
+    color: #111827;
+}
+
+.home-page .state {
+    font-weight: 700;
+}
+
+.home-page .state.ok {
+    color: #16a34a;
+}
+
+.home-page .state.warn {
+    color: #d97706;
+}
+
+.home-page .state.err {
+    color: #dc2626;
+}
+
+.home-page .note {
+    color: #6b7280;
+    font-size: 12px;
+    margin-top: 12px;
+}
+
+.home-page .menu-item.active { background: #e8eef9; font-weight: 700; }
+
+/* 반응형 */
+@media (max-width: 900px) {
+    .home-page .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .home-page .sidebar {
+        height: auto;
+    }
 }

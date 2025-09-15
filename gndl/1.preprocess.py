@@ -1,27 +1,28 @@
+import os
+import sys
+import glob
+import json
+import time
+import pickle
+import pyodbc
+import warnings
 import pandas as pd
 import numpy as np
-import glob
-import os
-import pyodbc
-import pickle
-import json
-import warnings
-import time
-import sys
 
-from decimal import Decimal
-from dotenv import load_dotenv
-from pathlib import Path
-from datetime import datetime, timedelta
 from tqdm import tqdm
+from pathlib import Path
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
 
-# ============================================================================== [ 데이터베이스 연결 ]
+warnings.filterwarnings('ignore')
 
 load_dotenv()
 FLASK_ENV = os.getenv("FLASK_ENV", "production")
+
 DSNNAME = os.getenv("DSNNAME")
 DBUSER = os.getenv("DBUSER")
 DBPWD = os.getenv("DBPWD")
+
 ENZERO_SERVER = os.getenv("ENZERO_SERVER")
 ENZERO_PORT = os.getenv("ENZERO_PORT")
 ENZERO_DB = os.getenv("ENZERO_DB")
@@ -30,7 +31,7 @@ ENZERO_PWD = os.getenv("ENZERO_PWD")
 
 def get_connection():
     if FLASK_ENV == "test":
-        print(f">>> [INFO] Flask 환경 설정: {FLASK_ENV}")
+        print(f">>> [INFO] Flask 환경 설정: {FLASK_ENV} (엔제로 서버 사용)")
         return pyodbc.connect(
             f"DRIVER=Tibero 5 ODBC Driver;"
             f"SERVER={ENZERO_SERVER};"
@@ -40,19 +41,96 @@ def get_connection():
             f"PWD={ENZERO_PWD};"
         )
     else:
-        print(f">>> [INFO] Flask 환경 설정: {FLASK_ENV}")
+        print(f">>> [INFO] Flask 환경 설정: {FLASK_ENV} (센터 DSN 사용)")
         return pyodbc.connect(
             f"DSN={DSNNAME};"
             f"UID={DBUSER};"
             f"PWD={DBPWD}"
         )
 
-# ============================================================================== [ 데이터베이스 연결 ]
+def _query_min_max_stat15(conn):
+    sql = "SELECT MIN(STAT_15MIN) AS MIN_T, MAX(STAT_15MIN) AS MAX_T FROM TOMMS.STAT_15MIN_CROSS WHERE INFRA_TYPE = 'SMT'"
+    df = pd.read_sql(sql, conn)
+    return str(df['MIN_T'].iloc[0]), str(df['MAX_T'].iloc[0])
 
-warnings.filterwarnings('ignore')
+def fetch_15min_from_db(start: str|None = None,
+                        end: str|None = None,
+                        cross_ids: list[int]|None = None,
+                        infra_type: str = "SMT",
+                        batch_days: int = 7) -> pd.DataFrame:
+    """
+    STAT_15MIN_CROSS에서 15분 교통량을 배치로 읽어 공통 스키마로 반환.
+    반환 컬럼: STAT_TIME, TIME_INTERVAL('15min'), CROSS_ID, INFRA_TYPE, VOL, VPHG, VS,
+              VOL_01..VOL_24, (선택) LOS, WALKER_CNT, CRASH_CNT, DELAY_TIME
+    """
+    time_col = "STAT_15MIN"
+    base_cols = [time_col, "CROSS_ID", "INFRA_TYPE", "VOL", "VPHG", "VS"] + [f"VOL_{i:02d}" for i in range(1,25)]
+    optional = ["LOS", "WALKER_CNT", "CRASH_CNT", "DELAY_TIME"]
+    select_cols = ", ".join([*base_cols, *optional])
+
+    where = ["INFRA_TYPE = ?"]
+    params_base = [infra_type]
+
+    if cross_ids:
+        placeholders = ",".join(["?"] * len(cross_ids))
+        where.append(f"CROSS_ID IN ({placeholders})")
+        params_base += cross_ids
+
+    sql_tpl = f"""
+      SELECT {select_cols}
+      FROM TOMMS.STAT_15MIN_CROSS
+      WHERE {" AND ".join(where + ["{time_col} >= ?", "{time_col} < ?"])}
+      ORDER BY {time_col}, CROSS_ID
+    """.replace("{time_col}", time_col)
+
+    cn = get_connection()
+    try:
+        # 전체 조회 요청이면 DB에서 기간 경계 먼저 얻기
+        if start is None or end is None:
+            min_t, max_t = _query_min_max_stat15(cn)   # e.g. '202407010000', '202508312345'
+            start = min_t
+            # max_t는 inclusive일 수 있으니 +15분 해서 exclusive로 맞춘다
+            dt_max = pd.to_datetime(max_t, format="%Y%m%d%H%M") + pd.Timedelta(minutes=15)
+            end = dt_max.strftime("%Y%m%d%H%M")
+
+        cur_start = pd.to_datetime(start, format="%Y%m%d%H%M")
+        cur_end   = pd.to_datetime(end,   format="%Y%m%d%H%M")
+        step = pd.Timedelta(days=batch_days)
+
+        dfs = []
+
+        # ✅ tqdm 프로그레스바 추가
+        total_batches = int((cur_end - cur_start) / step) + 1
+        print(f"📊 전체 조회 범위: {start} ~ {end}, 배치 크기: {batch_days}일")
+        print(f"📊 총 배치 수: {total_batches}")
+        progress = tqdm(total=total_batches, desc="DB Fetch", unit="batch")
+
+        while cur_start < cur_end:
+            s = cur_start.strftime("%Y%m%d%H%M")
+            e = min(cur_start + step, cur_end).strftime("%Y%m%d%H%M")
+            params = params_base + [s, e]
+
+            df = pd.read_sql(sql_tpl, cn, params=params)
+
+            if not df.empty:
+                df.rename(columns={time_col: "STAT_TIME"}, inplace=True)
+                df["TIME_INTERVAL"] = "15min"
+                dfs.append(df)
+
+            # 진행상황 업데이트
+            progress.set_postfix({"rows": len(df)})
+            progress.update(1)
+
+            cur_start += step
+
+        progress.close()
+
+        data = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        return data
+    finally:
+        cn.close()
 
 class GNNTrafficDataPreprocessor:
-    
     def __init__(self, data_folder='data', output_folder='gnn_data', sa_cross_file='SA_CROSS.csv'):
         """
         GNN Traffic Data Preprocessor with Real Road Network
@@ -93,38 +171,56 @@ class GNNTrafficDataPreprocessor:
         # Create output directory
         os.makedirs(output_folder, exist_ok=True)
         
-        print(f" GNN Data Preprocessor Initialized")
-        print(f" Target intersections: {len(self.target_cross_ids)}")
-        print(f"  Using real road network from: {sa_cross_file}")
-        print(f" Output folder: {output_folder}")
+        print(f"🚀 GNN Data Preprocessor Initialized")
+        print(f"📍 Target intersections: {len(self.target_cross_ids)}")
+        print(f"🗺️  Using real road network from: {sa_cross_file}")
+        print(f"📁 Output folder: {output_folder}")
         print("="*60)
 
-    # ============================================================================== [ SA_CROSS 노드 연결 구조 로딩 ]
+    def load_from_db(self, start=None, end=None):
+        cn = get_connection()   # 외부 함수 호출
+        try:
+            sql = f"""
+            SELECT STAT_15MIN, CROSS_ID, INFRA_TYPE, VOL, VPHG, VS,
+                   {",".join([f"VOL_{i:02d}" for i in range(1,25)])},
+                   LOS, WALKER_CNT, CRASH_CNT, DELAY_TIME
+            FROM TOMMS.STAT_15MIN_CROSS
+            WHERE INFRA_TYPE = 'SMT'
+            """
+            if start and end:
+                sql += f" AND STAT_15MIN BETWEEN '{start}' AND '{end}'"
+            df = pd.read_sql(sql, cn)
+        finally:
+            cn.close()
+        
+        df.rename(columns={"STAT_15MIN": "STAT_TIME"}, inplace=True)
+        df["TIME_INTERVAL"] = "15min"
+        return df
 
     def load_sa_cross_info(self):
         """Load SA_CROSS.csv for real road network connections"""
         if os.path.exists(self.sa_cross_file):
-            print(f" Loading road network information from {self.sa_cross_file}")
+            print(f"📍 Loading road network information from {self.sa_cross_file}")
             self.sa_cross_info = pd.read_csv(self.sa_cross_file)
             
             # Convert CROSS_ID to int if it's float
             if 'CROSS_ID' in self.sa_cross_info.columns:
                 self.sa_cross_info['CROSS_ID'] = self.sa_cross_info['CROSS_ID'].fillna(0).astype(int)
             
-            print(f" Loaded {len(self.sa_cross_info)} intersection connection records")
+            print(f"✅ Loaded {len(self.sa_cross_info)} intersection connection records")
             print(f"   - SA Groups: {self.sa_cross_info['SA_ID'].nunique()}")
             print(f"   - Districts: {self.sa_cross_info['DIST'].unique()}")
         else:
-            print(f"  SA_CROSS.csv not found. Will use grid-based connections.")
+            print(f"⚠️  SA_CROSS.csv not found. Will use grid-based connections.")
             self.sa_cross_info = None
 
     def create_real_road_network(self):
         """Create adjacency list based on real road network from SA_CROSS.csv"""
         if self.sa_cross_info is None:
-            print("  No SA_CROSS info available. Using grid-based network.")
+            print("⚠️  No SA_CROSS info available. Using grid-based network.")
             return self.create_grid_based_network()
         
-        print("  Creating real road network connections...")
+        print("🗺️  Creating real road network connections...")
         
         adjacency_list = {cross_id: set() for cross_id in self.target_cross_ids}
         
@@ -166,7 +262,7 @@ class GNNTrafficDataPreprocessor:
         
         # Also add connections between UP and DOWN directions at the same intersection
         # (if they exist in different SA groups)
-        print(" Adding UP/DOWN connections...")
+        print("🔄 Adding UP/DOWN connections...")
         
         for cross_id in tqdm(self.target_cross_ids, desc="Processing UP/DOWN"):
             cross_records = target_sa_info[target_sa_info['CROSS_ID'] == cross_id]
@@ -195,18 +291,18 @@ class GNNTrafficDataPreprocessor:
                     edges.append((source, target))
         
         # Print network statistics
-        print(f"\n Real Road Network Statistics:")
+        print(f"\n📊 Real Road Network Statistics:")
         print(f"   - Total edges: {len(edges)}")
         print(f"   - Average degree: {sum(len(v) for v in adjacency_list.values()) / len(adjacency_list):.2f}")
         
         # Find isolated nodes
         isolated_nodes = [node for node, neighbors in adjacency_list.items() if len(neighbors) == 0]
         if isolated_nodes:
-            print(f"   -   Isolated intersections: {len(isolated_nodes)}")
+            print(f"   - ⚠️  Isolated intersections: {len(isolated_nodes)}")
             print(f"        {isolated_nodes[:10]}{'...' if len(isolated_nodes) > 10 else ''}")
         
         # Analyze connectivity by SA group
-        print(f"\n  Connectivity by SA Group:")
+        print(f"\n🗺️  Connectivity by SA Group:")
         sa_summary = target_sa_info.groupby('SA_ID').agg({
             'CROSS_ID': 'count',
             'DIST': 'first'
@@ -221,7 +317,7 @@ class GNNTrafficDataPreprocessor:
 
     def create_grid_based_network(self):
         """Fallback: Create grid-based network if SA_CROSS not available"""
-        print(" Creating grid-based network (fallback)...")
+        print("📐 Creating grid-based network (fallback)...")
         
         adjacency_list = {cross_id: [] for cross_id in self.target_cross_ids}
         
@@ -261,12 +357,12 @@ class GNNTrafficDataPreprocessor:
                 if source < target:
                     edges.append((source, target))
         
-        print(f" Created grid-based network with {len(edges)} edges")
+        print(f"✅ Created grid-based network with {len(edges)} edges")
         return adjacency_list, edges
 
     def analyze_graph_structure(self, data):
         """Analyze graph structure using real road network"""
-        print("  Analyzing graph structure...")
+        print("🗺️  Analyzing graph structure...")
         
         # Create real road network connections
         adjacency_list, edges = self.create_real_road_network()
@@ -275,7 +371,7 @@ class GNNTrafficDataPreprocessor:
         intersection_roads = {}
         
         intersection_progress = tqdm(self.target_cross_ids, 
-                                   desc=" Analyzing intersection roads", 
+                                   desc="🚦 Analyzing intersection roads", 
                                    unit="intersection")
         
         for cross_id in intersection_progress:
@@ -327,20 +423,18 @@ class GNNTrafficDataPreprocessor:
         
         return intersection_roads, (adjacency_list, edges)
 
-    # ---------------------------------------------------------------------------- [ 교통량 CSV 추출 ]
-
     def load_all_csv_files(self):
         """Load and combine all CSV files from data folder"""
-        print(" Loading CSV files from data folder...")
+        print("📂 Loading CSV files from data folder...")
         
         csv_files = glob.glob(os.path.join(self.data_folder, "*.csv"))
         # Exclude SA_CROSS.csv from traffic data files
         csv_files = [f for f in csv_files if not os.path.basename(f).startswith('SA_CROSS')]
         
-        print(f" Found {len(csv_files)} traffic data CSV files")
+        print(f"🔍 Found {len(csv_files)} traffic data CSV files")
         
         if not csv_files:
-            raise ValueError(f" No CSV files found in {self.data_folder}")
+            raise ValueError(f"❌ No CSV files found in {self.data_folder}")
         
         all_dataframes = []
         processed_files = 0
@@ -366,7 +460,7 @@ class GNNTrafficDataPreprocessor:
                 
                 # Basic data validation
                 if 'CROSS_ID' not in df.columns or 'INFRA_TYPE' not in df.columns:
-                    file_progress.write(f"  Skipping {os.path.basename(file_path)}: Missing required columns")
+                    file_progress.write(f"⚠️  Skipping {os.path.basename(file_path)}: Missing required columns")
                     continue
                 
                 # Filter SMT data only
@@ -385,92 +479,35 @@ class GNNTrafficDataPreprocessor:
                 })
                     
             except Exception as e:
-                file_progress.write(f" Error processing {os.path.basename(file_path)}: {str(e)}")
+                file_progress.write(f"❌ Error processing {os.path.basename(file_path)}: {str(e)}")
                 continue
         
         file_progress.close()
         
         if not all_dataframes:
-            raise ValueError(" No valid data found in CSV files")
+            raise ValueError("❌ No valid data found in CSV files")
         
         # Combine all data with progress
-        print(" Combining all dataframes...")
+        print("🔄 Combining all dataframes...")
         combined_data = pd.concat(all_dataframes, ignore_index=True)
         
-        print(f" Successfully loaded {processed_files} files")
-        print(f" Total records: {len(combined_data):,}")
+        print(f"✅ Successfully loaded {processed_files} files")
+        print(f"📊 Total records: {len(combined_data):,}")
         print("="*60)
         
         return combined_data
 
-    # ---------------------------------------------------------------------------- [ 교통량 데이터베이스 추출 ]
-    
-    def load_data_from_db(target_cross_ids):
-        """
-        Replace CSV loading with Tibero DB query.
-
-        Args:
-            target_cross_ids (list): List of CROSS_IDs to filter
-
-        Returns:
-            pd.DataFrame: Combined traffic data, same as load_all_csv_files()
-        """
-        print(" Loading traffic data from Tibero DB...")
-        
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-
-            # Prepare query
-            id_list_str = ",".join(map(str, target_cross_ids))
-            query = f"""
-                SELECT *
-                FROM NODE_RESULT
-                WHERE INFRA_TYPE = 'SMT'
-                AND CROSS_ID IN ({id_list_str})
-            """
-
-            cursor.execute(query)
-            columns = [col[0] for col in cursor.description]
-
-            # Handle decimal and other conversions
-            rows = [tuple(float(v) if isinstance(v, Decimal) else v for v in row)
-                    for row in cursor.fetchall()]
-
-            df = pd.DataFrame(rows, columns=columns)
-
-            # Time handling
-            if 'STAT_5MIN' in df.columns:
-                df['STAT_TIME'] = df['STAT_5MIN']
-                df['TIME_INTERVAL'] = '5min'
-            elif 'STAT_15MIN' in df.columns:
-                df['STAT_TIME'] = df['STAT_15MIN']
-                df['TIME_INTERVAL'] = '15min'
-            else:
-                raise ValueError(" 시간 정보 컬럼(STAT_5MIN 또는 STAT_15MIN)이 존재하지 않습니다.")
-
-            # CROSS_ID 필터 추가 보정 (혹시라도 누락되었을 경우)
-            df = df[df['CROSS_ID'].isin(target_cross_ids)]
-
-            print(f" Loaded {len(df):,} rows from DB")
-            print("=" * 60)
-            return df
-
-        except Exception as e:
-            print(f" DB 데이터 로딩 중 오류 발생: {str(e)}")
-            raise e
-
     def preprocess_temporal_data(self, data):
         """Preprocess data for temporal GNN input"""
-        print(" Preprocessing temporal data...")
+        print("⏰ Preprocessing temporal data...")
         
         # Convert STAT_TIME to datetime
-        print(" Converting timestamps...")
+        print("📅 Converting timestamps...")
         tqdm.pandas(desc="Converting timestamps", colour="green")
         data['datetime'] = pd.to_datetime(data['STAT_TIME'].astype(str), format='%Y%m%d%H%M')
         
         # Sort by time and intersection
-        print(" Sorting data by time and intersection...")
+        print("🔀 Sorting data by time and intersection...")
         data = data.sort_values(['datetime', 'CROSS_ID']).reset_index(drop=True)
         
         # Remove duplicates
@@ -479,26 +516,26 @@ class GNNTrafficDataPreprocessor:
         data = data.drop_duplicates(subset=['datetime', 'CROSS_ID'], keep='last')
         removed_duplicates = original_length - len(data)
         
-        print(f" Date range: {data['datetime'].min()} to {data['datetime'].max()}")
-        print(f" Unique timestamps: {data['datetime'].nunique()}")
-        print(f" Unique intersections: {data['CROSS_ID'].nunique()}")
-        print(f" Removed duplicates: {removed_duplicates:,}")
+        print(f"📅 Date range: {data['datetime'].min()} to {data['datetime'].max()}")
+        print(f"⏰ Unique timestamps: {data['datetime'].nunique()}")
+        print(f"🚦 Unique intersections: {data['CROSS_ID'].nunique()}")
+        print(f"🧹 Removed duplicates: {removed_duplicates:,}")
         print("="*60)
         
         return data
 
     def create_node_features(self, data):
         """Create node feature matrix for each timestamp"""
-        print(" Creating node feature matrices...")
+        print("🎯 Creating node feature matrices...")
         
         # Get all unique timestamps
         timestamps = sorted(data['datetime'].unique())
-        print(f" Processing {len(timestamps)} timestamps...")
+        print(f"⏰ Processing {len(timestamps)} timestamps...")
         
         node_features_by_time = {}
         
         # Progress bar for timestamp processing
-        timestamp_progress = tqdm(timestamps, desc=" Processing timestamps", unit="timestamp", colour="cyan")
+        timestamp_progress = tqdm(timestamps, desc="🎯 Processing timestamps", unit="timestamp", colour="cyan")
         
         for timestamp in timestamp_progress:
             timestamp_data = data[data['datetime'] == timestamp]
@@ -582,17 +619,17 @@ class GNNTrafficDataPreprocessor:
         timestamp_progress.close()
         
         feature_dim = len(features_matrix[0]) if features_matrix else 0
-        print(f" Created node features for {len(timestamps)} timestamps")
-        print(f" Feature dimension per node: {feature_dim}")
+        print(f"✅ Created node features for {len(timestamps)} timestamps")
+        print(f"📊 Feature dimension per node: {feature_dim}")
         print("="*60)
         
         return node_features_by_time
 
     def create_temporal_sequences(self, node_features_by_time, sequence_length=12, prediction_horizon=3):
         """Create temporal sequences for training"""
-        print(f" Creating temporal sequences...")
-        print(f"    Sequence length: {sequence_length}")
-        print(f"    Prediction horizon: {prediction_horizon}")
+        print(f"📈 Creating temporal sequences...")
+        print(f"   🔄 Sequence length: {sequence_length}")
+        print(f"   🎯 Prediction horizon: {prediction_horizon}")
         
         timestamps = sorted(node_features_by_time.keys())
         
@@ -603,7 +640,7 @@ class GNNTrafficDataPreprocessor:
         
         # Progress bar
         sequence_progress = tqdm(range(max_sequences), 
-                               desc=" Creating sequences", 
+                               desc="📈 Creating sequences", 
                                unit="sequence", colour="purple")
         
         for i in sequence_progress:
@@ -635,16 +672,16 @@ class GNNTrafficDataPreprocessor:
         sequences = np.array(sequences)
         targets = np.array(targets)
         
-        print(f" Created {len(sequences)} temporal sequences")
-        print(f" Input shape: {sequences.shape}")
-        print(f" Target shape: {targets.shape}")
+        print(f"✅ Created {len(sequences)} temporal sequences")
+        print(f"📊 Input shape: {sequences.shape}")
+        print(f"🎯 Target shape: {targets.shape}")
         print("="*60)
         
         return sequences, targets, timestamps
 
     def save_processed_data(self, node_features_by_time, adjacency_list, edges, sequences, targets, timestamps, intersection_roads):
         """Save all processed data for GNN training"""
-        print(" Saving processed data...")
+        print("💾 Saving processed data...")
         
         save_tasks = [
             ("node_features.pkl", lambda: pickle.dump(node_features_by_time, open(os.path.join(self.output_folder, 'node_features.pkl'), 'wb'))),
@@ -664,7 +701,7 @@ class GNNTrafficDataPreprocessor:
         
         save_progress.close()
         
-        print(f" All data saved to {self.output_folder}/")
+        print(f"✅ All data saved to {self.output_folder}/")
         print("="*60)
 
     def _save_graph_structure(self, adjacency_list, edges, intersection_roads):
@@ -760,10 +797,10 @@ class GNNTrafficDataPreprocessor:
             import matplotlib.pyplot as plt
             import networkx as nx
         except ImportError:
-            print(" matplotlib/networkx not installed. Skipping visualization.")
+            print("⚠️  matplotlib/networkx not installed. Skipping visualization.")
             return
         
-        print(" Generating network visualization...")
+        print("📊 Generating network visualization...")
         
         # Load saved graph structure
         with open(os.path.join(self.output_folder, 'graph_structure.pkl'), 'rb') as f:
@@ -809,65 +846,71 @@ class GNNTrafficDataPreprocessor:
         plt.savefig(os.path.join(self.output_folder, 'network_graph.png'), dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f" Network visualization saved to {self.output_folder}/network_graph.png")
+        print(f"✅ Network visualization saved to {self.output_folder}/network_graph.png")
 
     def run_full_preprocessing(self, sequence_length=12, prediction_horizon=3):
         """Run complete preprocessing pipeline"""
-        print("" + "="*58)
-        print("Starting GNN Data Preprocessing Pipeline")
-        print("" + "="*58)
+        print("🚀 " + "="*58)
+        print("🚀 Starting GNN Data Preprocessing Pipeline")
+        print("🚀 " + "="*58)
         start_time = time.time()
-        
-        # Step 1: Load all CSV files
-        print("\n STEP 1: Loading Traffic Volume")
-        data = self.load_data_from_db()
+
+        # STEP 1: DB에서 15분 교통량 로딩 (전체 기간 배치)
+        print("\n📂 STEP 1: Loading Database STAT_15MIN_CROSS")
+        data = fetch_15min_from_db(
+            start=None,                 # 전체 기간 자동 탐색
+            end=None,
+            cross_ids=self.target_cross_ids,   # 106개 대상만
+            infra_type="SMT",
+            batch_days=7               # 1주일 단위 배치 읽기 (필요시 3~14 조정)
+        )
         
         # Step 2: Preprocess temporal data
-        print("\n STEP 2: Preprocessing Temporal Data")
+        print("\n⏰ STEP 2: Preprocessing Temporal Data")
         data = self.preprocess_temporal_data(data)
         
         # Step 3: Create node features
-        print("\n STEP 3: Creating Node Features")
+        print("\n🎯 STEP 3: Creating Node Features")
         node_features_by_time = self.create_node_features(data)
         
         # Step 4: Analyze graph structure with real network
-        print("\n  STEP 4: Analyzing Graph Structure")
+        print("\n🗺️  STEP 4: Analyzing Graph Structure")
         intersection_roads, (adjacency_list, edges) = self.analyze_graph_structure(data)
         
         # Step 5: Create temporal sequences
-        print("\n STEP 5: Creating Temporal Sequences")
+        print("\n📈 STEP 5: Creating Temporal Sequences")
         sequences, targets, timestamps = self.create_temporal_sequences(
             node_features_by_time, sequence_length, prediction_horizon
         )
         
         # Step 6: Save all processed data
-        print("\n STEP 6: Saving Processed Data")
+        print("\n💾 STEP 6: Saving Processed Data")
         self.save_processed_data(
             node_features_by_time, adjacency_list, edges, 
             sequences, targets, timestamps, intersection_roads
         )
         
         # Step 7: Visualize network (optional)
-        print("\n STEP 7: Visualizing Network")
+        print("\n📊 STEP 7: Visualizing Network")
         self.visualize_network()
         
         # Final summary
         end_time = time.time()
         processing_time = end_time - start_time
         
-        print("\n " + "="*58)
-        print(" GNN Data Preprocessing Complete!")
-        print(" " + "="*58)
-        print(f"  Total processing time: {processing_time:.2f} seconds")
-        print(f" Dataset Summary:")
-        print(f"    Intersections: {len(self.target_cross_ids)}")
-        print(f"    Time periods: {len(timestamps)}")
-        print(f"    Training sequences: {len(sequences):,}")
-        print(f"    Graph edges: {len(edges)}")
-        print(f"     Network type: {'Real road network' if self.sa_cross_info is not None else 'Grid-based'}")
-        print(f"    Feature dimension: {sequences.shape[-1] if len(sequences) > 0 else 0}")
-        print(f"    Data size: {sequences.nbytes / (1024**2):.2f} MB")
-        print(" " + "="*58)
+        print("\n🎉 " + "="*58)
+        print("🎉 GNN Data Preprocessing Complete!")
+        print("🎉 " + "="*58)
+        print(f"⏱️  Total processing time: {processing_time:.2f} seconds")
+        print(f"📊 Dataset Summary:")
+        print(f"   🚦 Intersections: {len(self.target_cross_ids)}")
+        print(f"   ⏰ Time periods: {len(timestamps)}")
+        print(f"   📈 Training sequences: {len(sequences):,}")
+        print(f"   🔗 Graph edges: {len(edges)}")
+        print(f"   🗺️  Network type: {'Real road network' if self.sa_cross_info is not None else 'Grid-based'}")
+        print(f"   📊 Feature dimension: {sequences.shape[-1] if len(sequences) > 0 else 0}")
+        print(f"   💾 Data size: {sequences.nbytes / (1024**2):.2f} MB")
+        print("🎉 " + "="*58)
         
         return {
             'node_features': node_features_by_time,
@@ -882,14 +925,14 @@ class GNNTrafficDataPreprocessor:
 
 def main():
     """Main execution function"""
-    print("[Traffic GNN Data Preprocessor] 실행 시작")
-    print("Starting preprocessing pipeline...")
+    print("🚦 Traffic GNN Data Preprocessor with Real Road Network")
+    print("🚀 Starting preprocessing pipeline...")
     print()
     
     # Check if SA_CROSS.csv exists
     sa_cross_path = 'SA_CROSS.csv'
     if not os.path.exists(sa_cross_path):
-        print(f"  {sa_cross_path} not found in current directory.")
+        print(f"⚠️  {sa_cross_path} not found in current directory.")
         print("   Place SA_CROSS.csv in the current directory for real road network.")
         response = input("Continue with grid-based network? (y/n): ")
         if response.lower() != 'y':
@@ -913,9 +956,9 @@ def main():
 if __name__ == "__main__":
     try:
         preprocessor, results = main()
-        print("\n Preprocessing completed successfully!")
+        print("\n✅ Preprocessing completed successfully!")
     except KeyboardInterrupt:
-        print("\n  Preprocessing interrupted by user.")
+        print("\n⚠️  Preprocessing interrupted by user.")
     except Exception as e:
-        print(f"\n Error during preprocessing: {str(e)}")
+        print(f"\n❌ Error during preprocessing: {str(e)}")
         raise

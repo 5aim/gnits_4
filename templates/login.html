@@ -1,18 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8">
+<title>Login</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="centered-container">
-        <form class="form-box">
-            <h2>Login</h2>
-            <input type="text" placeholder="Username" required><br>
-            <input type="password" placeholder="Password" required><br>
+<div class="centered-container">
+
+    <!-- flash 메시지를 alert으로 표시 -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <script>
+            {% for msg in messages %}
+                alert("{{ msg }}");
+            {% endfor %}
+            </script>
+        {% endif %}
+    {% endwith %}
+
+    <form class="form-box" method="post" action="{{ url_for('login') }}">
+        <h2>강릉시 디지털트윈 시뮬레이션 분석 플랫폼</h2>
+        <input type="text" name="admin_id" placeholder="관리자 아이디" required><br>
+        <input type="password" name="password" placeholder="비밀번호" required><br>
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:15px;">
             <button type="submit">Login</button>
-        </form>
-    </div>
+            <a href="{{ url_for('signup') }}"><button type="button">회원가입</button></a>
+        </div>
+    </form>
+</div>
 </body>
 </html>

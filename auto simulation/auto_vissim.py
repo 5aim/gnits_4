@@ -54,7 +54,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 current_datetime = datetime.datetime.now()
 
 # >> 아래 변수는 테스트를 위해 수동으로 현재시간을 지정하는 부분입니다. 현재 시각을 수동 지정하려면 아래 주석을 해제하세요.
-current_datetime = datetime.datetime.strptime("2025090201", "%Y%m%d%H")
+current_datetime = datetime.datetime.strptime("2025070202", "%Y%m%d%H")
 
 # 전날 날짜 계산
 target_date = (current_datetime - datetime.timedelta(days=1)).strftime("%Y%m%d")
@@ -118,24 +118,29 @@ class Config:
 
 # ============================================================================ [ DB 연결 - 교통량 조회 ]
 
+FIFTEEN_MINUTES = ["00", "15", "30", "45"]
+INTERVAL_LABEL = {  # 키(mm) -> 구간 의미
+    "00": "45~00분",  # hh00 은 직전 45~정각
+    "15": "00~15분",
+    "30": "15~30분",
+    "45": "30~45분",
+}
+
 class DatabaseManager:
-    
-    def __init__(self, config: Config):
+    def __init__(self, config):
         self.config = config
         self.conn = self._connect()
         self.cursor = self.conn.cursor() if self.conn else None
-        self.columns = [
-            "STAT_HOUR", "CROSS_ID", "INFRA_TYPE", "SPECIALDAY", "VPHG", "VPHG", "VS", "LOS",
-            "VOL_01", "VOL_02", "VOL_03", "VOL_04", "VOL_05", "VOL_06", "VOL_07", "VOL_08", "VOL_09",
-            "VOL_10", "VOL_11", "VOL_12", "VOL_13", "VOL_14", "VOL_15", "VOL_16", "VOL_17", "VOL_18",
-            "VOL_19", "VOL_20", "VOL_21", "VOL_22", "VOL_23",
-            "WALKER_CNT", "CRASH_CNT", "DELAY_TIME"
-        ]
-        self.traffic_data_by_hour = {
-            "08": [],
-            "11": [],
-            "14": [],
-            "17": []
+
+        # 시간대별 집계(HOUR)
+        self.traffic_data_by_hour = {"08": [], "11": [], "14": [], "17": []}
+
+        # 15분 집계(HH -> MM -> list)
+        self.traffic_data_by_15min = {
+            "08": {"00": [], "15": [], "30": [], "45": []},
+            "11": {"00": [], "15": [], "30": [], "45": []},
+            "14": {"00": [], "15": [], "30": [], "45": []},
+            "17": {"00": [], "15": [], "30": [], "45": []},
         }
 
     def _connect(self):
@@ -163,43 +168,104 @@ class DatabaseManager:
             print("⛔ DB 연결 실패:", e)
             return None
 
-    def fetch_peak_traffic_data(self):
+    # cursor.description 기반 안전 매핑
+    def _rows_to_dicts(self, rows):
+        cols = [d[0] for d in self.cursor.description]
+        out = []
+        for r in rows:
+            d = {}
+            for c, v in zip(cols, r):
+                d[c] = float(v) if isinstance(v, Decimal) else v
+            out.append(d)
+        return out
+
+    @staticmethod
+    def _expand_to_15min_timestamps(target_stat_hours):
+        """
+        input:  ['YYYYMMDD08','YYYYMMDD11',...]
+        output: ['YYYYMMDD0800','YYYYMMDD0815','YYYYMMDD0830','YYYYMMDD0845', ...]
+        """
+        return [f"{hh}{mm}" for hh in target_stat_hours for mm in FIFTEEN_MINUTES]
+
+    def fetch_peak_traffic_data(self, target_stat_hours):
+        """
+        target_stat_hours: ['YYYYMMDD08','YYYYMMDD11','YYYYMMDD14','YYYYMMDD17']
+        - STAT_HOUR_CROSS  : STAT_HOUR, CROSS_ID, VOL, VOL_01..VOL_24
+        - STAT_15MIN_CROSS : STAT_15MIN, CROSS_ID, VOL, VOL_01..VOL_24
+        적재 대상:
+        - self.traffic_data_by_hour[HH]     # HH in {"08","11","14","17"}
+        - self.traffic_data_by_15min[HH][MM]  # MM in {"00","15","30","45"}
+        """
+        if not self.cursor:
+            print(">>> DB 커서가 유효하지 않습니다.")
+            return
+
+        # 공통 컬럼 세트
+        vol_cols = ["VOL"] + [f"VOL_{i:02d}" for i in range(1, 25)]
+
         try:
-            def convert_row_to_dict(row, columns):
-                return {
-                    col: float(val) if isinstance(val, Decimal) else val
-                    for col, val in zip(columns, row)
-                }
+            # ---------------- (A) 시간대(HH) 데이터 ----------------
+            hour_cols = ["STAT_HOUR", "CROSS_ID"] + vol_cols
+            hour_col_str = ", ".join(hour_cols)
 
-            if not self.cursor:
-                print(">>> DB 커서가 유효하지 않습니다.")
-                return
-
-            formatted_hours = "', '".join(target_stat_hours)
-            query = f"""
-                SELECT *
+            placeholders = ", ".join(["?"] * len(target_stat_hours))
+            sql_hour = f"""
+                SELECT {hour_col_str}
                 FROM TOMMS.STAT_HOUR_CROSS
-                WHERE STAT_HOUR IN ('{formatted_hours}')
+                WHERE STAT_HOUR IN ({placeholders})
                 AND INFRA_TYPE = 'SMT'
             """
-            self.cursor.execute(query)
-            rows = self.cursor.fetchall()
-            data_dicts = [convert_row_to_dict(row, self.columns) for row in rows]
+            self.cursor.execute(sql_hour, target_stat_hours)
+            hour_rows = self.cursor.fetchall()
+            hour_dicts = self._rows_to_dicts(hour_rows)
 
-            # 딕셔너리 기반 저장
-            for row in data_dicts:
-                stat_hour = row["STAT_HOUR"]
-                suffix = stat_hour[-2:]
-                if suffix in self.traffic_data_by_hour:
-                    self.traffic_data_by_hour[suffix].append(row)
+            # 적재
+            for row in hour_dicts:
+                # 필수 키 존재 확인
+                if "STAT_HOUR" not in row or "CROSS_ID" not in row:
+                    continue
+                hh = str(row["STAT_HOUR"])[-2:]  # '08','11','14','17'
+                if hh in self.traffic_data_by_hour:
+                    self.traffic_data_by_hour[hh].append(row)
 
-            print(f"✅ [ 교통량 데이터 조회 완료 ] - 총 {len(data_dicts)}건")
-            for hour in ["08", "11", "14", "17"]:
-                print(f"✅ 시간대 {hour}: {len(self.traffic_data_by_hour[hour])}건")
-                # ✅ 시간대 08: 96건
-                # ✅ 시간대 11: 96건
-                # ✅ 시간대 14: 96건
-                # ✅ 시간대 17: 96건
+            # ---------------- (B) 15분(HHMM) 데이터 ----------------
+            min_cols = ["STAT_15MIN", "CROSS_ID"] + vol_cols
+            min_col_str = ", ".join(min_cols)
+
+            target_stat_15mins = [f"{hh}{mm}" for hh in target_stat_hours for mm in FIFTEEN_MINUTES]
+            placeholders_15 = ", ".join(["?"] * len(target_stat_15mins))
+            sql_15 = f"""
+                SELECT {min_col_str}
+                FROM TOMMS.STAT_15MIN_CROSS
+                WHERE STAT_15MIN IN ({placeholders_15})
+                AND INFRA_TYPE = 'SMT'
+            """
+            self.cursor.execute(sql_15, target_stat_15mins)
+            min_rows = self.cursor.fetchall()
+            min_dicts = self._rows_to_dicts(min_rows)
+
+            for row in min_dicts:
+                if "STAT_15MIN" not in row or "CROSS_ID" not in row:
+                    continue
+                ts = str(row["STAT_15MIN"])   # 'YYYYMMDDHHMM'
+                hh, mm = ts[8:10], ts[10:12]  # HH, MM
+                if hh in self.traffic_data_by_15min and mm in self.traffic_data_by_15min[hh]:
+                    self.traffic_data_by_15min[hh][mm].append(row)
+
+            # ---------------- (C) 검증 & 로그 ----------------
+            print(f"✅ [시간대 데이터] 총 {len(hour_dicts)}건")
+            for hh in ["08", "11", "14", "17"]:
+                print(f"       {hh}시: {len(self.traffic_data_by_hour[hh])}건")
+
+            print(f"✅ [15분 데이터] 총 {len(min_dicts)}건")
+            for hh in ["08", "11", "14", "17"]:
+                counts = {mm: len(self.traffic_data_by_15min[hh][mm]) for mm in FIFTEEN_MINUTES}
+                total = sum(counts.values())
+                print(f"       {hh}시 총 {total}건")
+                print(f"            - {INTERVAL_LABEL['15']} (키=15): {counts['15']}건")
+                print(f"            - {INTERVAL_LABEL['30']} (키=30): {counts['30']}건")
+                print(f"            - {INTERVAL_LABEL['45']} (키=45): {counts['45']}건")
+                print(f"            - {INTERVAL_LABEL['00']} (키=00): {counts['00']}건")
 
         except Exception as e:
             print("⛔ 교통량 조회 중 오류:", e)
@@ -243,24 +309,37 @@ class NodeDirectionManager:
 
         try:
             query = """
-                SELECT CROSS_ID, NODE_NAME, APPR_ID, MOVEMENT, DIRECTION
-                FROM TOMMS.NODE_DIR_INFO
+                SELECT
+                    NI.CROSS_ID,
+                    DI.NODE_ID,
+                    DI.APPR_ID,
+                    DI.MOVEMENT,
+                    DI.DIRECTION
+                FROM TOMMS.TFA_NODE_DIR_INFO DI
+                JOIN TOMMS.TFA_NODE_INFO     NI
+                ON NI.NODE_ID = DI.NODE_ID
+                -- 필요 시 정렬
+                ORDER BY DI.NODE_ID, DI.APPR_ID, DI.DIRECTION
             """
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
 
             cleaned_rows = []
             for row in rows:
-                cleaned_row = []
+                out = []
                 for val in row:
+                    # Tibero/pyodbc Decimal → int 변환 (정수 컬럼만)
                     if isinstance(val, Decimal):
-                        cleaned_row.append(int(val))
+                        out.append(int(val))
                     else:
-                        cleaned_row.append(val)
-                cleaned_rows.append(tuple(cleaned_row))
+                        out.append(val)
+                cleaned_rows.append(tuple(out))
 
-            df = pd.DataFrame(cleaned_rows, columns=["CROSS_ID", "NODE_NAME", "APPR_ID", "MOVEMENT", "DIRECTION"])
-            
+            df = pd.DataFrame(
+                cleaned_rows,
+                columns=["CROSS_ID", "NODE_ID", "APPR_ID", "MOVEMENT", "DIRECTION"]
+            )
+
             print(f"✅ NODE_DIR_INFO 조회 완료 - {len(df)}건")
             return df
 
@@ -308,7 +387,7 @@ class VTTMInfoManager:
         try:
             query = """
                 SELECT VTTM_ID, FROM_NODE_NAME, TO_NODE_NAME
-                FROM TOMMS.VTTM_INFO
+                FROM TOMMS.TFA_VTTM_INFO
             """
             self.cursor.execute(query)
             rows = self.cursor.fetchall()
@@ -348,7 +427,7 @@ def insert_vttm_results_to_db(df_vttm, db_manager):
         return
 
     insert_query = """
-        INSERT INTO VTTM_RESULT (
+        INSERT INTO TOMMS.TFA_VTTM_HOUR_RESULT (
             STAT_HOUR, VTTM_ID, DISTANCE, VEHS, TRAVEL_TIME
         ) VALUES (?, ?, ?, ?, ?)
     """
@@ -388,46 +467,66 @@ def insert_vttm_results_to_db(df_vttm, db_manager):
 # ============================================================================ [ 교차로 결과값 DB INSERT ]
 
 def insert_node_results_to_db(df_node: pd.DataFrame, db_manager):
-    
     if db_manager.cursor is None:
         print("⛔ DB 커서가 유효하지 않습니다.")
         return
 
-    insert_query = """
-        INSERT INTO NODE_RESULT (
-            STAT_HOUR, TIMEINT, NODE_ID, QLEN, VEHS, DELAY, STOPS
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    # --- 1) 클린업: 타입/공백 정리 ---
+    df = df_node.copy()
+    for c in ["STAT_HOUR", "TIMEINT", "NODE_ID"]:
+        if c in df.columns:
+            df[c] = df[c].astype(str).str.strip()
+
+    # 필수 키 누락 행 제거
+    df = df[df["NODE_ID"].notna() & (df["NODE_ID"] != "")]
+
+    # 수치 컬럼 정리
+    def to_float(x):
+        try:
+            return float(x)
+        except Exception:
+            return None
+    def to_int(x):
+        try:
+            return int(float(x))
+        except Exception:
+            return None
+
+    if "QLEN"  in df.columns: df["QLEN"]  = df["QLEN"].map(to_float)
+    if "DELAY" in df.columns: df["DELAY"] = df["DELAY"].map(to_float)
+    if "STOPS" in df.columns: df["STOPS"] = df["STOPS"].map(to_float)
+    if "VEHS"  in df.columns: df["VEHS"]  = df["VEHS"].map(to_int)
+
+    # --- 2) 부모키 존재할 때만 INSERT (FK 안전) ---
+    insert_sql = """
+        INSERT INTO TOMMS.TFA_NODE_15MIN_RESULT
+            (STAT_HOUR, TIMEINT, NODE_ID, QLEN, VEHS, DELAY, STOPS)
+        SELECT ?, ?, ?, ?, ?, ?, ?
+        FROM DUAL
+        WHERE EXISTS (
+            SELECT 1 FROM TOMMS.TFA_NODE_INFO p
+            WHERE p.NODE_ID = ?
+        )
     """
 
-    def clean_value(val, target_type):
-        if pd.isna(val):
-            return None
-        try:
-            if target_type == "int":
-                return int(val)
-            elif target_type == "float":
-                return float(val)
-            elif target_type == "str":
-                return str(val)
-        except:
-            return None
-
-    insert_data = []
-    for _, row in df_node.iterrows():
-        insert_data.append((
-            clean_value(row.get("STAT_HOUR"), "str"),
-            clean_value(row.get("TIMEINT"), "str"),
-            clean_value(row.get("NODE_ID"), "str"),
-            clean_value(row.get("QLEN"), "float"),
-            clean_value(row.get("VEHS"), "int"),
-            clean_value(row.get("DELAY"), "float"),
-            clean_value(row.get("STOPS"), "float")
+    params = []
+    for _, r in df.iterrows():
+        params.append((
+            r.get("STAT_HOUR"),
+            r.get("TIMEINT"),
+            r.get("NODE_ID"),
+            r.get("QLEN"),
+            r.get("VEHS"),
+            r.get("DELAY"),
+            r.get("STOPS"),
+            r.get("NODE_ID"),  # EXISTS 검증용
         ))
 
     try:
-        db_manager.cursor.executemany(insert_query, insert_data)
+        db_manager.cursor.fast_executemany = True  # pyodbc 성능 옵션
+        db_manager.cursor.executemany(insert_sql, params)
         db_manager.conn.commit()
-        print(f"✅ NODE_RESULT에 {len(insert_data)}건 삽입 완료")
+        print(f"✅ NODE_RESULT 삽입 시도 {len(params)}건 완료 (부모키 있는 행만 실제 삽입)")
     except Exception as e:
         print("⛔ NODE_RESULT 삽입 오류:", e)
         db_manager.conn.rollback()
@@ -441,9 +540,9 @@ def insert_node_dir_results_to_db(df_dir_node: pd.DataFrame, db_manager):
         return
 
     insert_query = """
-        INSERT INTO NODE_DIR_RESULT (
-            STAT_HOUR, TIMEINT, NODE_ID, SA_NO, APPR_ID, DIRECTION, QLEN, VEHS, DELAY, STOPS
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO TOMMS.TFA_NODE_DIR_15MIN_RESULT (
+            STAT_HOUR, TIMEINT, NODE_ID, APPR_ID, DIRECTION, QLEN, VEHS, DELAY, STOPS
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
 
     def clean_value(val, target_type):
@@ -465,7 +564,6 @@ def insert_node_dir_results_to_db(df_dir_node: pd.DataFrame, db_manager):
             clean_value(row.get("STAT_HOUR"), "str"),
             clean_value(row.get("TIMEINT"), "str"),
             clean_value(row.get("NODE_ID"), "str"),
-            clean_value(row.get("SA_NO"), "str"),
             clean_value(row.get("APPR_ID"), "int"),
             clean_value(row.get("DIRECTION"), "int"),
             clean_value(row.get("QLEN"), "float"),
@@ -482,20 +580,19 @@ def insert_node_dir_results_to_db(df_dir_node: pd.DataFrame, db_manager):
         print("⛔ NODE_DIR_RESULT 삽입 오류:", e)
         db_manager.conn.rollback()
 
-# ============================================================================ [ Data Collection 결과값 DB INSERT ]
+# ============================================================================ [ Data Collection 결과값 DB INSERT - 통행시간 즉석 계산 ]
 
 def insert_dc_to_db(dc: pd.DataFrame, db_manager):
-    
     if db_manager.cursor is None:
         print("⛔ DB 커서가 유효하지 않습니다.")
         return
-    
+
     insert_query = """
-            INSERT INTO DC_RESULT (
-            DISTRICT, STAT_HOUR, DC_ID, DISTANCE, VEHS, SPEED
-            ) VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO TOMMS.TFA_DC_HOUR_RESULT (
+            STAT_HOUR, DC_ID, DISTANCE, VEHS, SPEED, TRAVEL_TIME
+        ) VALUES (?, ?, ?, ?, ?, ?)
     """
-    
+
     def clean_value(val, target_type):
         if pd.isna(val):
             return None
@@ -508,16 +605,40 @@ def insert_dc_to_db(dc: pd.DataFrame, db_manager):
                 return str(val)
         except:
             return None
-    
+
+    def compute_travel_time_seconds(row) -> float:
+        """
+        TRAVEL_TIME[s] = DISTANCE(m) * 3.6 / SPEED(km/h)
+        SPEED가 0이거나 결측이면 0.0 반환
+        """
+        # 원래 값이 있으면 그대로 반영
+        tt = row.get("TRAVEL_TIME")
+        if pd.notna(tt):
+            try:
+                return round(float(tt), 1)
+            except:
+                pass
+
+        d = row.get("DISTANCE")
+        v = row.get("SPEED")
+        try:
+            d = float(d) if pd.notna(d) else None
+            v = float(v) if pd.notna(v) else None
+            if d is None or v is None or v <= 0:
+                return 0.0   # ← SPEED=0, 결측 시 0.0 강제
+            return round(d * 3.6 / v, 1)
+        except:
+            return 0.0
+
     insert_data = []
     for _, row in dc.iterrows():
         insert_data.append((
-            clean_value(row.get("DISTRICT"), "int"),
             clean_value(row.get("STAT_HOUR"), "str"),
             clean_value(row.get("DC_ID"), "int"),
             clean_value(row.get("DISTANCE"), "float"),
             clean_value(row.get("VEHS"), "int"),
-            clean_value(row.get("SPEED"), "float")
+            clean_value(row.get("SPEED"), "float"),
+            compute_travel_time_seconds(row)
         ))
 
     try:
@@ -537,8 +658,8 @@ def insert_np_to_db(np: pd.DataFrame, db_manager):
         return
     
     insert_query = """
-            INSERT INTO NP_RESULT (
-            DISTRICT, STAT_HOUR, VEHS, COST
+            INSERT INTO TOMMS.TFA_DISTRICT_HOUR_RESULT (
+            DISTRICT_ID, STAT_HOUR, VEHS, COST
             ) VALUES (?, ?, ?, ?)
     """
     
@@ -558,7 +679,7 @@ def insert_np_to_db(np: pd.DataFrame, db_manager):
     insert_data = []
     for _, row in np.iterrows():
         insert_data.append((
-            clean_value(row.get("DISTRICT"), "int"),
+            clean_value(row.get("DISTRICT_ID"), "int"),
             clean_value(row.get("STAT_HOUR"), "str"),
             clean_value(row.get("VEHS"), "int"),
             clean_value(row.get("COST"), "float")
@@ -605,10 +726,10 @@ class VissimSimulationManager:
             print("🧹 COM uninitialized")
     
     def _ensure_vissim(self,
-                       prog_ids=("Vissim.Vissim.22",),
-                       max_attempts=8,
-                       base_delay=1.5,
-                       hard_timeout_sec=90) -> bool:
+                    prog_ids=("Vissim.Vissim.22",),
+                    max_attempts=8,
+                    base_delay=1.5,
+                    hard_timeout_sec=90) -> bool:
         self._init_com()
         start = time.time()
         last_err = None
@@ -663,15 +784,28 @@ class VissimSimulationManager:
 
         try:
             # ------------------------------------------------------------ 반복된 시뮬레이션 루프
-            for idx, (hour_key, traffic_list) in enumerate(self.db.traffic_data_by_hour.items()):
+            for idx, (hour_key, traffic_hour_list) in enumerate(self.db.traffic_data_by_hour.items()):
+                # hour_key 예: "08","11","14","17"
                 try:
                     idx = peak_hours.index(hour_key)
-                    full_stat_hour = target_stat_hours[idx]
+                    full_stat_hour = target_stat_hours[idx]  # "YYYYMMDDHH"
                 except ValueError:
                     print(f"⛔ [ 오류 ] 시간대 {hour_key}는 peak_hours에 없습니다.")
                     continue
 
+                # 15분 데이터(없으면 빈 구조로 대체)
+                traffic_15min_list = self.db.traffic_data_by_15min.get(
+                    hour_key,
+                    {"00": [], "15": [], "30": [], "45": []}
+                )
+
+                # 로그(요약)
+                hh_total = len(traffic_hour_list)
+                mm_counts = {mm: len(traffic_15min_list.get(mm, [])) for mm in ["00", "15", "30", "45"]}
+                mm_total = sum(mm_counts.values())
                 print(f"🔵 [ {area} ] ( {full_stat_hour} ) 시뮬레이션 시작 ===")
+                print(f"    ├─ 시간대 데이터: {hh_total}건")
+                print(f"    └─ 15분 데이터: 총 {mm_total}건 / 00:{mm_counts['00']} 15:{mm_counts['15']} 30:{mm_counts['30']} 45:{mm_counts['45']}")
 
                 # [1] 이전 결과 삭제
                 self.cleanup_att_files(area)
@@ -690,7 +824,8 @@ class VissimSimulationManager:
                     continue
 
                 # [3] 연계 → 실행 → 추출
-                self.apply_traffic_data(traffic_list)
+                # ✅ 변경: 시간대/15분 데이터를 함께 전달
+                self.apply_traffic_data(traffic_hour_list, traffic_15min_list)
                 self.run_simulation()
                 df_node, df_dir_node, df_vttm, dc, np = self.extract_results(stat_hour=full_stat_hour, area_name=area)
 
@@ -699,7 +834,7 @@ class VissimSimulationManager:
 
                 # [6] 결과 파일 삭제
                 self.cleanup_att_files(area)
-                
+
         finally:
             # ------------------------------------------------------------ 종료
             self.close_simulation()
@@ -707,91 +842,116 @@ class VissimSimulationManager:
 
     # ============================================================================ [ 연계 - vehicle input / static route ]
 
-    def apply_traffic_data(self, traffic_list):
-        
-        print(f"🔵 [ 교통량 입력 시작 ] 총 {len(traffic_list)}건")
+    def apply_traffic_data(self, traffic_hour_list, traffic_15min_list):
+        """
+        traffic_hour_list: 시간대(HH) 데이터 list[dict]
+        traffic_15min_list: {"00": [...], "15": [...], "30": [...], "45": [...]}
+            - "15" 리스트의 각 row는 '00~15' 구간을 의미
+            - "30" → 15~30, "45" → 30~45, "00" → 45~00
+        """
 
-        for idx, row in enumerate(traffic_list, 1):
-            stat_hour = row.get("STAT_HOUR")
-            cross_id = row.get("CROSS_ID")
-
-            # VOL_xx 중 None이 아닌 값만 추출
-            volume_data = {
-                key.replace("VOL_", ""): int(value)
-                for key, value in row.items()
-                if key.startswith("VOL_") and value is not None
+        # -----------------------------
+        # 0) 사전 인덱싱 (성능 & 단순화)
+        # -----------------------------
+        def _row_to_volume_map(row):
+            # VOL_XX → int 로만 구성 (None 제외)
+            return {
+                key.replace("VOL_", ""): int(val)
+                for key, val in row.items()
+                if key.startswith("VOL_") and val is not None
             }
 
-            # ------------------------------------------------------------ [ vehicle input 교통량 입력 ]
-            
-            num_decisions = self.vissim.Net.VehicleRoutingDecisionsStatic.count
-            vehicle_input_nos = self.vissim.Net.VehicleInputs.GetMultiAttValues('No')
-            vehicle_input_node_ids = self.vissim.Net.VehicleInputs.GetMultiAttValues('Node_ID')
-            vehicle_input_link_ids = self.vissim.Net.VehicleInputs.GetMultiAttValues('Link_ID')
-            
-            grouped_data_list = []
+        # 시간대: (cross_id, vol_key) → volume
+        hour_map = {}
+        for row in traffic_hour_list:
+            cross_id = str(row.get("CROSS_ID"))
+            vol_map = _row_to_volume_map(row)
+            for vol_key, vol in vol_map.items():
+                hour_map[(cross_id, vol_key)] = vol
 
-            for no, node_id, link_id in zip(vehicle_input_nos, vehicle_input_node_ids, vehicle_input_link_ids):
-                if node_id[1] is None or link_id[1] is None:  # node_id와 link_id에 None이 있으면 제외
+        # 15분: mm별 (cross_id, vol_key) → volume
+        mm_maps = {"00": {}, "15": {}, "30": {}, "45": {}}
+        for mm in ["00", "15", "30", "45"]:
+            rows = traffic_15min_list.get(mm, [])
+            m = mm_maps[mm]
+            for row in rows:
+                cross_id = str(row.get("CROSS_ID"))
+                vol_map = _row_to_volume_map(row)
+                for vol_key, vol in vol_map.items():
+                    m[(cross_id, vol_key)] = vol
+
+        total_vi = 0
+        total_route = 0
+
+        print(f"🔵 [ 교통량 입력 시작 ] VI={len(traffic_hour_list)}건, 15분={'/'.join(f'{k}:{len(traffic_15min_list.get(k, []))}' for k in ['15','30','45','00'])}")
+
+        # ------------------------------------------------------------ [ vehicle input 교통량 입력 ]
+        vehicle_input_nos = self.vissim.Net.VehicleInputs.GetMultiAttValues('No')
+        vehicle_input_node_ids = self.vissim.Net.VehicleInputs.GetMultiAttValues('Node_ID')
+        vehicle_input_link_ids = self.vissim.Net.VehicleInputs.GetMultiAttValues('Link_ID')
+
+        for no, node_id, link_id in zip(vehicle_input_nos, vehicle_input_node_ids, vehicle_input_link_ids):
+            if node_id[1] is None or link_id[1] is None:
+                continue
+
+            cross_id = str(node_id[1])              # VI는 Node_ID 기준
+            vol_key = f"{int(link_id[1]):02d}"      # Link_ID → "02","03"... 매칭
+
+            vi_vol = hour_map.get((cross_id, vol_key))  # 시간대 교통량만 사용
+            if vi_vol is None:
+                continue
+
+            vi = self.vissim.Net.VehicleInputs.ItemByKey(no[1])
+            # 시간대 교통량으로 5 슬롯 동일 입력(원 코드 유지)
+            vi.SetAttValue('Volume(1)', vi_vol)
+            vi.SetAttValue('Volume(2)', vi_vol)
+            vi.SetAttValue('Volume(3)', vi_vol)
+            vi.SetAttValue('Volume(4)', vi_vol)
+            vi.SetAttValue('Volume(5)', vi_vol)
+            total_vi += 1
+
+        # ------------------------------------------------------------ [ static route 교통량 입력 ]
+        vrds = self.vissim.Net.VehicleRoutingDecisionsStatic
+        num_decisions = self.vissim.Net.VehicleRoutingDecisionsStatic.Count
+
+        # RelFlow 매핑 규칙
+        # (1) = 시간대, (2)=00~15 → "15", (3)=15~30 → "30", (4)=30~45 → "45", (5)=45~00 → "00"
+        mm_for_relflow = {2: "15", 3: "30", 4: "45", 5: "00"}
+
+        for i in range(1, num_decisions + 1):
+            if not vrds.ItemKeyExists(i):
+                continue
+            decision = vrds.ItemByKey(i)
+
+            for route in decision.VehRoutSta.GetAll():
+                sr_node_id = route.AttValue('VehRoutDec\\Node_ID')
+                sr_turn_id = route.AttValue('Turn_ID')
+
+                if sr_node_id is None or sr_turn_id is None:
                     continue
 
-                # CROSS_ID와 node_id가 일치하는지 확인
-                if str(cross_id) != str(node_id[1]):
+                cross_id = str(sr_node_id)
+                vol_key = f"{int(sr_turn_id):02d}"
+
+                # (1) 시간대 교통량 (RelFlow(1))
+                sr_vol_hour = hour_map.get((cross_id, vol_key))
+                if sr_vol_hour is None:
+                    # 시간대 분기 없으면 전체 라우트 입력 스킵
+                    # (필요 시 0 입력으로 유지하고 싶다면 아래 continue를 제거하고 0으로 세팅)
                     continue
 
-                # VOL_xx에서 xx == link_id
-                vol_key = f"{int(link_id[1]):02d}"  # 예: 4 → "04"
-                vi_vol = volume_data.get(vol_key)
+                route.SetAttValue("RelFlow(1)", sr_vol_hour)
 
-                if vi_vol is None:
-                    continue  # 해당 방향 데이터 없음
+                # (2~5) 15분 교통량
+                for rel_idx in [2, 3, 4, 5]:
+                    mm = mm_for_relflow[rel_idx]
+                    sr_vol_15m = mm_maps[mm].get((cross_id, vol_key), 0)
+                    route.SetAttValue(f"RelFlow({rel_idx})", sr_vol_15m)
 
-                # print(f"[ Vehicle Input ] (InputNo = {no[1]}) (NodeID = {node_id[1]}) (LinkID = {link_id[1]}) (Volume = {vi_vol})")
+                total_route += 1
 
-                # 교통량 입력
-                vi = self.vissim.Net.VehicleInputs.ItemByKey(no[1])
-                vi.SetAttValue('Volume(1)', vi_vol)
-                vi.SetAttValue('Volume(2)', vi_vol)
-                vi.SetAttValue('Volume(3)', vi_vol)
-                vi.SetAttValue('Volume(4)', vi_vol)
-                vi.SetAttValue('Volume(5)', vi_vol)
-            
-            # ------------------------------------------------------------ [ static route 교통량 입력 ]
-            
-            vrds = self.vissim.Net.VehicleRoutingDecisionsStatic
-            num_decisions = self.vissim.Net.VehicleRoutingDecisionsStatic.Count
-            
-            for i in range(1, num_decisions + 1):
-                if vrds.ItemKeyExists(i):
-                    decision = vrds.ItemByKey(i)
-
-                    for route in decision.VehRoutSta.GetAll():
-                        sr_node_id = route.AttValue('VehRoutDec\\Node_ID')
-                        sr_turn_id = route.AttValue('Turn_ID')
-                        
-                        # 조건: 둘 다 None이 아니어야 함
-                        if sr_node_id is None or sr_turn_id is None:
-                            continue
-
-                        # CROSS_ID와 매칭
-                        if str(cross_id) != str(sr_node_id):
-                            continue
-
-                        # Turn_ID에 해당하는 vol key 생성 → ex: 3 → "03"
-                        vol_key = f"{int(sr_turn_id):02d}"
-                        sr_vol = volume_data.get(vol_key)
-
-                        if sr_vol is None:
-                            continue  # 해당 방향에 대해 교통량 없음
-
-                        # print(f"[ Static Route ] (NodeID = {sr_node_id}) (TurnID = {sr_turn_id}) (Volume= {sr_vol})")
-                        
-                        route.SetAttValue("RelFlow(1)", sr_vol)
-                        route.SetAttValue("RelFlow(2)", sr_vol)
-                        route.SetAttValue("RelFlow(3)", sr_vol)
-                        route.SetAttValue("RelFlow(4)", sr_vol)
-                        route.SetAttValue("RelFlow(5)", sr_vol)
-
+        print(f"✅ [ 입력 완료 ] VehicleInputs: {total_vi}개, StaticRoutes: {total_route}개")
+        
     # ============================================================================ [ 실행 - simulation run ]
 
     def run_simulation(self):
@@ -967,68 +1127,131 @@ class VissimSimulationManager:
 
         # ------------------------------------------------------------ 교차로 & 교차로 방향별 결과값 가공
 
-        # df_dir_node 정보 병합
+        # 0) 매핑 테이블 로드
         node_dir_manager = NodeDirectionManager(config)
-        df_node_dir_info = node_dir_manager.fetch_node_dir_info()
-        if not df_node_dir_info.empty:
-            df_dir_node = df_dir_node.merge(df_node_dir_info, on="MOVEMENT", how="left")
-            print("✅ DIRECTION, APPR_ID 병합 완료")
-            
-            unmatched = df_dir_node[df_dir_node["MOVEMENT"].isin(df_node_dir_info["MOVEMENT"])]
-            # print("✅ 병합되지 않은 MOVEMENT 값 전체 목록:")
-            # print(unmatched["MOVEMENT"].unique().tolist())
+        df_node_dir_info = node_dir_manager.fetch_node_dir_info()  # [CROSS_ID, NODE_ID, APPR_ID, MOVEMENT, DIRECTION]
+
+        # 1) 매핑 존재 확인
+        if df_node_dir_info.empty:
+            print("⛔ 방향 기준(매핑) 데이터가 없어 방향별 결과 생성 불가 → 스킵")
+            df_dir_node = pd.DataFrame()
         else:
-            print("⛔ 방향 정보 병합 스킵 (데이터 없음)")
+            # 2) 키/컬럼 정규화
+            df_node_dir_info = df_node_dir_info.copy()
+            df_node_dir_info.columns = [c.upper() for c in df_node_dir_info.columns]
 
-        # 공통 가공
-        df_dir_node["STAT_HOUR"] = stat_hour
-        df_dir_node["TIMEINT"] = df_dir_node["TIMEINT"].map(timeint_map).fillna(df_dir_node["TIMEINT"])
-        df_dir_node = df_dir_node[df_dir_node["NODE_ID"].notna() & (df_dir_node["NODE_ID"] != "")]
-        df_dir_node.drop(columns=[col for col in ["SIMRUN"] if col in df_dir_node.columns], inplace=True)
+            # ✅ 필요한 컬럼을 **CROSS_ID 포함**해서 보존 (이전 코드의 누락 지점)
+            need_cols = ["MOVEMENT", "NODE_ID", "APPR_ID", "DIRECTION", "CROSS_ID"]
+            df_node_dir_info = (
+                df_node_dir_info[need_cols]
+                .drop_duplicates(subset=["MOVEMENT"])  # movement별 유일 매핑 가정
+            )
 
-        # 교차로 / 방향별 분리
-        df_node = df_dir_node[df_dir_node["MOVEMENT"].apply(lambda x: '@' not in str(x))].copy()
-        df_node.rename(columns={"MOVEMENT": "CROSS_ID"}, inplace=True)
-        df_dir_node = df_dir_node[df_dir_node["MOVEMENT"].apply(lambda x: '@' in str(x))].copy()
-        
-        # 컬럼 정렬
-        # 권역, 분석대상일자, 분석대상시간, 표준노드아이디, SA번호, 방향기준값, 대기행렬, 통행량, 지체시간(초), 정지횟수
-        base_cols = ["STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "MOVEMENT", "QLEN", "VEHS", "DELAY", "STOPS"]
-        # 접근로방향(시계방향값), 우직좌(1, 2, 3)
-        dir_extra_cols = ["APPR_ID", "DIRECTION"]
+            # 타입 정규화 (매칭 실패 방지)
+            df_node_dir_info["MOVEMENT"] = df_node_dir_info["MOVEMENT"].astype(str).str.strip()
+            # NODE_ID: 10자리 문자열
+            df_node_dir_info["NODE_ID"] = (
+                df_node_dir_info["NODE_ID"].astype(str).str.strip().str.zfill(10)
+            )
+            # CROSS_ID: 정수 (NULL 있으면 NaN→drop 또는 0 처리 선택)
+            df_node_dir_info["CROSS_ID"] = pd.to_numeric(df_node_dir_info["CROSS_ID"], errors="coerce")
 
-        df_node = df_node[[col for col in base_cols if col in df_node.columns]]
-        df_node.drop(columns=[col for col in ["CROSS_ID", "NODE_NAME"] if col in df_node.columns], inplace=True)
-        df_dir_node = df_dir_node[[col for col in base_cols + dir_extra_cols if col in df_dir_node.columns]]
-        
-        # ------------------------------------------------------------ 방향별 교차로 재가공
-        
-        # [1] APPR_ID 없는 행 제거
-        df_dir_node = df_dir_node[df_dir_node["APPR_ID"].notna() & (df_dir_node["APPR_ID"] != "")].copy()
+            # 원본 결과 프레임 정규화
+            df_dir_node = df_dir_node.copy()
+            if "MOVEMENT" not in df_dir_node.columns:
+                raise ValueError("원본 df_dir_node에 MOVEMENT 컬럼이 없습니다.")
+            df_dir_node["MOVEMENT"] = df_dir_node["MOVEMENT"].astype(str).str.strip()
 
-        # [2] 숫자 컬럼을 float으로 변환 (에러 방지)
-        for col in ["QLEN", "DELAY", "STOPS", "VEHS"]:
-            df_dir_node[col] = pd.to_numeric(df_dir_node[col], errors='coerce')
+            # 3) MOVEMENT 기준 병합  (충돌 회피 위해 suffix 사용)
+            df_dir_node = df_dir_node.merge(
+                df_node_dir_info,
+                on="MOVEMENT",
+                how="left",
+                suffixes=("", "_map"),
+                validate="m:1"
+            )
+            print("✅ MOVEMENT 기반으로 CROSS_ID, NODE_ID, APPR_ID, DIRECTION 병합 완료")
 
-        # [3] 그룹 기준 정의
-        group_cols = ["STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "APPR_ID", "DIRECTION"]
+            # 4) 충돌 컬럼 정리(통합): NODE_ID/APPR_ID/DIRECTION/CROSS_ID
+            #    - 원본에 값 없으면 *_map 값으로 채움
+            for col in ["NODE_ID", "APPR_ID", "DIRECTION", "CROSS_ID"]:
+                map_col = f"{col}_map"
+                if col in df_dir_node.columns and map_col in df_dir_node.columns:
+                    df_dir_node[col] = df_dir_node[col].where(df_dir_node[col].notna(), df_dir_node[map_col])
+                    df_dir_node.drop(columns=[map_col], inplace=True)
+                elif map_col in df_dir_node.columns:
+                    df_dir_node.rename(columns={map_col: col}, inplace=True)
 
-        # [4] QLEN, DELAY, STOPS은 평균, VEHS는 합계 처리
-        df_dir_node = (
-            df_dir_node
-            .groupby(group_cols, as_index=False)
-            .agg({
-                "QLEN": "mean",
-                "DELAY": "mean",
-                "STOPS": "mean",
-                "VEHS": "sum"
-            })
-        )
+            # 타입 재고정 (병합 후)
+            df_dir_node["NODE_ID"] = df_dir_node["NODE_ID"].astype(str).str.strip().str.zfill(10)
+            df_dir_node["CROSS_ID"] = pd.to_numeric(df_dir_node["CROSS_ID"], errors="coerce")
 
-        # [5] 평균 항목 소수점 둘째 자리로 반올림
-        df_dir_node["QLEN"] = df_dir_node["QLEN"].round(2)
-        df_dir_node["DELAY"] = df_dir_node["DELAY"].round(2)
-        df_dir_node["STOPS"] = df_dir_node["STOPS"].round(2)
+            # 5) 필수 컬럼 존재 보장 + 매핑 실패 진단
+            required_cols = {"NODE_ID", "APPR_ID", "DIRECTION", "CROSS_ID"}
+            missing = required_cols - set(df_dir_node.columns)
+            if missing:
+                cols = ", ".join(df_dir_node.columns)
+                raise ValueError(f"필수 컬럼 누락: {missing}. 현재 컬럼들: {cols}")
+
+            null_node_rows = df_dir_node[df_dir_node["NODE_ID"].isna() | (df_dir_node["NODE_ID"].astype(str).str.len() == 0)]
+            if not null_node_rows.empty:
+                bad_movs = null_node_rows["MOVEMENT"].dropna().unique().tolist()
+                print(f"⚠️ MOVEMENT→NODE_ID 매핑 실패 건수={len(null_node_rows)} / 예시={bad_movs[:5]}")
+
+            null_cross_rows = df_dir_node[df_dir_node["CROSS_ID"].isna()]
+            if not null_cross_rows.empty:
+                bad_movs = null_cross_rows["MOVEMENT"].dropna().unique().tolist()
+                print(f"⚠️ MOVEMENT→CROSS_ID 매핑 실패 건수={len(null_cross_rows)} / 예시={bad_movs[:5]}")
+
+            # 6) 공통 가공
+            df_dir_node["STAT_HOUR"] = stat_hour
+            df_dir_node["TIMEINT"] = df_dir_node["TIMEINT"].map(timeint_map).fillna(df_dir_node["TIMEINT"])
+            df_dir_node.drop(columns=[c for c in ["SIMRUN"] if c in df_dir_node.columns], inplace=True)
+
+            # NODE_ID 무결성 확보
+            df_dir_node = df_dir_node[
+                df_dir_node["NODE_ID"].notna() &
+                (df_dir_node["NODE_ID"].astype(str).str.len() > 0)
+            ]
+
+            # 7) 교차로 / 방향별 분리
+            #    ✅ 기존의 "MOVEMENT → CROSS_ID rename"은 **삭제**.
+            #    우리가 방금 병합한 **진짜 CROSS_ID(숫자형)** 를 사용해야 한다.
+            df_node = df_dir_node[df_dir_node["MOVEMENT"].apply(lambda x: '@' not in str(x))].copy()
+            df_dir_node = df_dir_node[df_dir_node["MOVEMENT"].apply(lambda x: '@' in str(x))].copy()
+
+            # 8) 컬럼 정렬
+            base_cols = ["STAT_HOUR", "TIMEINT", "NODE_ID", "SA_NO", "QLEN", "VEHS", "DELAY", "STOPS"]
+            dir_extra_cols = ["APPR_ID", "DIRECTION"]
+            keep_extra = ["CROSS_ID", "NODE_NAME"]
+
+            if not df_node.empty:
+                # node 집계에는 CROSS_ID/NODE_NAME이 필요 없으면 제거
+                cols_node = [c for c in base_cols if c in df_node.columns]
+                df_node = df_node[cols_node]
+
+            cols_dir = [c for c in (base_cols + dir_extra_cols + keep_extra) if c in df_dir_node.columns]
+            df_dir_node = df_dir_node[cols_dir]
+
+            # 9) 방향별 재가공
+            df_dir_node = df_dir_node[df_dir_node["APPR_ID"].notna() & (df_dir_node["APPR_ID"] != "")]
+            for c in ["QLEN", "DELAY", "STOPS", "VEHS"]:
+                if c in df_dir_node.columns:
+                    df_dir_node[c] = pd.to_numeric(df_dir_node[c], errors="coerce")
+
+            group_cols = ["STAT_HOUR", "TIMEINT", "NODE_ID", "CROSS_ID", "NODE_NAME", "SA_NO", "APPR_ID", "DIRECTION"]
+            have_cols = [c for c in group_cols if c in df_dir_node.columns]
+            df_dir_node = (
+                df_dir_node
+                .groupby(have_cols, as_index=False)
+                .agg({"QLEN": "mean", "DELAY": "mean", "STOPS": "mean", "VEHS": "sum"})
+            )
+            for c in ["QLEN", "DELAY", "STOPS"]:
+                if c in df_dir_node.columns:
+                    df_dir_node[c] = df_dir_node[c].round(2)
+
+            # 10) INSERT 직전 스키마로 슬라이싱 (CROSS_ID가 필요 없으면 제외)
+            df_dir_node = df_dir_node[["STAT_HOUR","TIMEINT","NODE_ID","APPR_ID","DIRECTION","QLEN","VEHS","DELAY","STOPS"]]
         
         # ------------------------------------------------------------ 구간 결과값 가공
         
@@ -1060,14 +1283,14 @@ class VissimSimulationManager:
         
         dc.drop(columns=[c for c in ["DATACOLLECTIONMEASUREMENTEVALUATION:SIMRUN", "TIMEINT"] if c in dc.columns], inplace=True)
         dc["STAT_HOUR"] = stat_hour
-        dc["DISTRICT"] = district_code
+        dc["DISTRICT_ID"] = district_code
         
         # ------------------------------------------------------------ Network Performance 컬럼 제거
         # DISTRICT, STAT_HOUR, VEHS, COST
         
         np.drop(columns=[c for c in ["VEHICLENETWORKPERFORMANCEMEASUREMENTEVALUATION:SIMRUN", "TIMEINT"] if c in np.columns], inplace=True)
         np["STAT_HOUR"] = stat_hour
-        np["DISTRICT"] = district_code
+        np["DISTRICT_ID"] = district_code
         np.drop(columns=["SIMRUN"], errors="ignore", inplace=True)
         
         # ------------------------------------------------------------ 교차로 방향별 결과값 / 교차로 결과값 엑셀 저장
@@ -1114,7 +1337,9 @@ class VissimSimulationManager:
         target_folder = r"C:\Digital Twin Simulation Network\VISSIM"
         patterns = [
             f"{area}_Node Results_*.att",
-            f"{area}_Vehicle Travel Time Results_*.att"
+            f"{area}_Vehicle Travel Time Results_*.att",
+            f"{area}_Vehicle Network Performance Evaluation Results_*.att",
+            f"{area}_Data Collection Results_*.att"
         ]
 
         deleted = 0
@@ -1141,32 +1366,43 @@ class VissimSimulationManager:
 
 # ============================================================================ [ main 실행 ]
 
+class Tee:
+    """stdout을 파일과 콘솔에 동시에 출력"""
+    def __init__(self, *streams):
+        self.streams = streams
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+            s.flush()
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
 if __name__ == "__main__":
     
     # ------------------------------------------------------------ 로그 폴더 및 파일명 지정
-    
     log_folder = "logs"
     os.makedirs(log_folder, exist_ok=True)
 
     start_time = datetime.datetime.now()
-    log_filename = start_time.strftime("%Y%m%d_%H%M%S_simulation.log")
+    log_filename = start_time.strftime("%Y%m%d_%H%M%S_vissim_simulation.log")
     log_path = os.path.join(log_folder, log_filename)
 
-    # ------------------------------------------------------------ 로그파일로 출력 리디렉션
-    
-    with open(log_path, "w", encoding="utf-8") as log_file, redirect_stdout(log_file):
+    # ------------------------------------------------------------ 로그파일 + 콘솔 동시에 출력
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        sys.stdout = Tee(sys.__stdout__, log_file)  # 콘솔(stdout) + 로그파일 동시 출력
+
         print("🟢 시뮬레이션 시작")
         print(f"▶️ 시작 시간: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 60)
 
         # ------------------------------------------------------------ 실제 시뮬레이션 실행 코드
-        
         config = Config()
         db = DatabaseManager(config)
         vissim_manager = VissimSimulationManager(config, db)
-        db.fetch_peak_traffic_data()
-        area_list = ["gyodong", "gyeongpo", "downtown", "songjung"]
-        
+        db.fetch_peak_traffic_data(target_stat_hours)
+        area_list = ["gyodong", "gyeongpo", "downtown", "songjung"]  # 1, 4, 3, 2
+
         for area in area_list:
             vissim_manager.run_full_simulation(area)
 

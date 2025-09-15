@@ -1,0 +1,5138 @@
+{
+    "status": "success",
+    "target_date": "20250701",
+    "data": [
+        {
+            "hour_label": "7월 1일 08시 ~ 09시",
+            "district": "교동",
+            "items": [
+                {
+                    "from_node": "미디어촌 삼거리",
+                    "to_node": "위촌리 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 54.3,
+                            "travel_speed": 27.6,
+                            "distance": 424.9
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 66.9,
+                            "travel_speed": 22.9,
+                            "distance": 424.9
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올야구장 사거리",
+                    "to_node": "솔올중학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 180.6,
+                            "travel_speed": 22.0,
+                            "distance": 1257.37
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 196.4,
+                            "travel_speed": 23.1,
+                            "distance": 1257.37
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 184,
+                        "travel_speed": 40.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올중학교 삼거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 244.9,
+                            "travel_speed": 10.6,
+                            "distance": 827.69
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 176.6,
+                            "travel_speed": 16.9,
+                            "distance": 827.69
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "부영6단지 사거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 143.5,
+                            "travel_speed": 27.7,
+                            "distance": 1117.45
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 213.2,
+                            "travel_speed": 18.9,
+                            "distance": 1117.45
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 362,
+                        "travel_speed": 38.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 258.1,
+                            "travel_speed": 18.6,
+                            "distance": 1310.7
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 215.6,
+                            "travel_speed": 21.9,
+                            "distance": 1310.7
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 52,
+                        "travel_speed": 41.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "서부지구대 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 15.8,
+                            "travel_speed": 29.9,
+                            "distance": 131.15
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 13.6,
+                            "travel_speed": 34.7,
+                            "distance": 131.15
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 72.4,
+                            "travel_speed": 22.2,
+                            "distance": 445.49
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 81.2,
+                            "travel_speed": 19.8,
+                            "distance": 445.49
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 43,
+                        "travel_speed": 29.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "서부지구대 사거리",
+                    "to_node": "솔올야구장 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 65.1,
+                            "travel_speed": 18.7,
+                            "distance": 340.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 63.5,
+                            "travel_speed": 19.3,
+                            "distance": 340.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 122,
+                        "travel_speed": 41.8,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉치과대학 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 32.9,
+                            "travel_speed": 39.5,
+                            "distance": 369.18
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 33.2,
+                            "travel_speed": 40.1,
+                            "distance": 369.18
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 171,
+                        "travel_speed": 39.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 109.7,
+                            "travel_speed": 18.0,
+                            "distance": 565.54
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 132.9,
+                            "travel_speed": 15.3,
+                            "distance": 565.54
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 14,
+                        "travel_speed": 37.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "오아시스 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 55.7,
+                            "travel_speed": 28.4,
+                            "distance": 441.26
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 44.5,
+                            "travel_speed": 35.7,
+                            "distance": 441.26
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 149.3,
+                            "travel_speed": 38.0,
+                            "distance": 1509.31
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 147.2,
+                            "travel_speed": 36.9,
+                            "distance": 1509.31
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 316,
+                        "travel_speed": 55.3,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 08시 ~ 09시",
+            "district": "경포",
+            "items": [
+                {
+                    "from_node": "법원 입구 삼거리",
+                    "to_node": "보훈지청 (감자바위) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 174.9,
+                            "travel_speed": 31.6,
+                            "distance": 1535.02
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 198.1,
+                            "travel_speed": 27.9,
+                            "distance": 1535.02
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 552,
+                        "travel_speed": 35.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포동사무소 교차로",
+                    "to_node": "법원 입구 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 113.0,
+                            "travel_speed": 28.4,
+                            "distance": 900.35
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 114.0,
+                            "travel_speed": 28.4,
+                            "distance": 900.35
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 351,
+                        "travel_speed": 40.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "경포동사무소 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 171.6,
+                            "travel_speed": 25.5,
+                            "distance": 1212.93
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 206.9,
+                            "travel_speed": 21.1,
+                            "distance": 1212.93
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 133.8,
+                            "travel_speed": 25.7,
+                            "distance": 945.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 131.1,
+                            "travel_speed": 26.0,
+                            "distance": 945.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "율곡교차로",
+                    "to_node": "이명 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 89.0,
+                            "travel_speed": 21.9,
+                            "distance": 536.01
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 98.5,
+                            "travel_speed": 19.6,
+                            "distance": 536.01
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "올림픽파크교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 96.3,
+                            "travel_speed": 36.8,
+                            "distance": 993.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 114.7,
+                            "travel_speed": 31.2,
+                            "distance": 993.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 131,
+                        "travel_speed": 40.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "올림픽파크교차로",
+                    "to_node": "이젠 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 133.8,
+                            "travel_speed": 33.3,
+                            "distance": 1494.23
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 183.1,
+                            "travel_speed": 29.4,
+                            "distance": 1494.23
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 08시 ~ 09시",
+            "district": "도심",
+            "items": [
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 33.1,
+                            "travel_speed": 33.2,
+                            "distance": 305.24
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 39.4,
+                            "travel_speed": 27.9,
+                            "distance": 305.24
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 1,
+                            "travel_time": 151.9,
+                            "travel_speed": 28.1,
+                            "distance": 1185.39
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 52.7,
+                            "travel_speed": 32.4,
+                            "distance": 589.12
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 104.7,
+                            "travel_speed": 20.3,
+                            "distance": 589.12
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 176.2,
+                            "travel_speed": 26.0,
+                            "distance": 1209.02
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 131.9,
+                            "travel_speed": 33.0,
+                            "distance": 1209.02
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 314,
+                        "travel_speed": 36.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "입암6주공 오거리",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 108.8,
+                            "travel_speed": 28.4,
+                            "distance": 829.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 117.3,
+                            "travel_speed": 25.4,
+                            "distance": 829.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 182,
+                        "travel_speed": 36.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "입암6주공 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 90.0,
+                            "travel_speed": 18.1,
+                            "distance": 453.59
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 99.0,
+                            "travel_speed": 16.5,
+                            "distance": 453.59
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "강릉관광 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 137.4,
+                            "travel_speed": 21.5,
+                            "distance": 828.19
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 155.2,
+                            "travel_speed": 19.2,
+                            "distance": 828.19
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 174,
+                        "travel_speed": 35.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "강릉역육거리회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 167.6,
+                            "travel_speed": 26.1,
+                            "distance": 1134.58
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 181.9,
+                            "travel_speed": 22.5,
+                            "distance": 1134.58
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉역육거리회전교차로",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 99.6,
+                            "travel_speed": 20.3,
+                            "distance": 561.59
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 74.3,
+                            "travel_speed": 27.2,
+                            "distance": 561.59
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 255,
+                        "travel_speed": 32.7,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 162.3,
+                            "travel_speed": 27.6,
+                            "distance": 1238.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 194.8,
+                            "travel_speed": 22.9,
+                            "distance": 1238.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 149,
+                        "travel_speed": 38.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "적십자 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 104.2,
+                            "travel_speed": 23.0,
+                            "distance": 666.57
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 96.9,
+                            "travel_speed": 24.8,
+                            "distance": 666.57
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "적십자 사거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 322.4,
+                            "travel_speed": 25.3,
+                            "distance": 1925.91
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 366.8,
+                            "travel_speed": 18.9,
+                            "distance": 1925.91
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 293,
+                        "travel_speed": 34.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 25.2,
+                            "travel_speed": 27.0,
+                            "distance": 189.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 20.8,
+                            "travel_speed": 32.8,
+                            "distance": 189.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 189,
+                        "travel_speed": 32.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "홍제교 남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 34.3,
+                            "travel_speed": 18.5,
+                            "distance": 174.88
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 34.8,
+                            "travel_speed": 18.1,
+                            "distance": 174.88
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 27,
+                        "travel_speed": 35.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 150.4,
+                            "travel_speed": 25.6,
+                            "distance": 1048.2
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 171.0,
+                            "travel_speed": 22.1,
+                            "distance": 1048.2
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 17.5,
+                            "travel_speed": 40.3,
+                            "distance": 196.95
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 50.1,
+                            "travel_speed": 14.1,
+                            "distance": 196.95
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 122,
+                        "travel_speed": 44.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 32.1,
+                            "travel_speed": 41.0,
+                            "distance": 368.51
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 88.5,
+                            "travel_speed": 15.0,
+                            "distance": 368.51
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "용지각 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 108.2,
+                            "travel_speed": 27.2,
+                            "distance": 803.86
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 78.8,
+                            "travel_speed": 36.7,
+                            "distance": 803.86
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 23.5,
+                            "travel_speed": 35.6,
+                            "distance": 232.28
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 29.1,
+                            "travel_speed": 28.7,
+                            "distance": 232.28
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 43,
+                        "travel_speed": 44.7,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 66.3,
+                            "travel_speed": 14.5,
+                            "distance": 266.67
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 42.8,
+                            "travel_speed": 22.4,
+                            "distance": 266.67
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "교동사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 29.8,
+                            "travel_speed": 28.4,
+                            "distance": 234.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 22.4,
+                            "travel_speed": 37.7,
+                            "distance": 234.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "남문사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 212.1,
+                            "travel_speed": 33.5,
+                            "distance": 1970.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 265.1,
+                            "travel_speed": 26.8,
+                            "distance": 1970.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 301,
+                        "travel_speed": 44.8,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 154.1,
+                            "travel_speed": 17.2,
+                            "distance": 738.6
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 194.6,
+                            "travel_speed": 13.7,
+                            "distance": 738.6
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 277,
+                        "travel_speed": 36.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 218.9,
+                            "travel_speed": 29.3,
+                            "distance": 0.0
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 0.0
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 110.9,
+                            "travel_speed": 27.5,
+                            "distance": 740.13
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 65.2,
+                            "travel_speed": 40.8,
+                            "distance": 740.13
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 270,
+                        "travel_speed": 36.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "부흥마을(더샾아파트후문) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1663.56
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 212.4,
+                            "travel_speed": 28.2,
+                            "distance": 1663.56
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 220,
+                        "travel_speed": 34.8,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 08시 ~ 09시",
+            "district": "송정",
+            "items": [
+                {
+                    "from_node": "공항대교 남단 교차로",
+                    "to_node": "남항진 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 291.8,
+                            "travel_speed": 25.5,
+                            "distance": 0.0
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 0.0
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 8.0,
+                            "travel_speed": 28.5,
+                            "distance": 63.63
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 15.2,
+                            "travel_speed": 15.0,
+                            "distance": 63.63
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 157,
+                        "travel_speed": 29.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "동인병원 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 155.4,
+                            "travel_speed": 25.8,
+                            "distance": 1129.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 131.2,
+                            "travel_speed": 31.0,
+                            "distance": 1129.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1112.88
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 221.7,
+                            "travel_speed": 18.1,
+                            "distance": 1112.88
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 154.8,
+                            "travel_speed": 25.4,
+                            "distance": 1048.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 123.9,
+                            "travel_speed": 30.5,
+                            "distance": 1048.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 203.1,
+                            "travel_speed": 32.3,
+                            "distance": 1835.3
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 204.1,
+                            "travel_speed": 32.4,
+                            "distance": 1835.3
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 241.4,
+                            "travel_speed": 40.2,
+                            "distance": 2689.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 266.8,
+                            "travel_speed": 36.3,
+                            "distance": 2689.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 30.1,
+                            "travel_speed": 34.7,
+                            "distance": 290.27
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 32.5,
+                            "travel_speed": 32.2,
+                            "distance": 290.27
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 100.7,
+                            "travel_speed": 33.2,
+                            "distance": 927.33
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 138.6,
+                            "travel_speed": 24.1,
+                            "distance": 927.33
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 258,
+                        "travel_speed": 40.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "송정사거리",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 47.0,
+                            "travel_speed": 24.8,
+                            "distance": 349.44
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 35.9,
+                            "travel_speed": 35.0,
+                            "distance": 349.44
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 141,
+                        "travel_speed": 28.6,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 11시 ~ 12시",
+            "district": "교동",
+            "items": [
+                {
+                    "from_node": "미디어촌 삼거리",
+                    "to_node": "위촌리 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 52.9,
+                            "travel_speed": 28.4,
+                            "distance": 417.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 60.3,
+                            "travel_speed": 24.9,
+                            "distance": 417.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올야구장 사거리",
+                    "to_node": "솔올중학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 170.2,
+                            "travel_speed": 24.6,
+                            "distance": 1258.08
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 191.8,
+                            "travel_speed": 23.6,
+                            "distance": 1258.08
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 204,
+                        "travel_speed": 39.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올중학교 삼거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 243.9,
+                            "travel_speed": 10.7,
+                            "distance": 734.2
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 163.5,
+                            "travel_speed": 16.2,
+                            "distance": 734.2
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "부영6단지 사거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 137.6,
+                            "travel_speed": 28.2,
+                            "distance": 1251.39
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 228.9,
+                            "travel_speed": 19.7,
+                            "distance": 1251.39
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 276,
+                        "travel_speed": 39.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 196.8,
+                            "travel_speed": 22.2,
+                            "distance": 1473.63
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 240.5,
+                            "travel_speed": 22.1,
+                            "distance": 1473.63
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 62,
+                        "travel_speed": 42.7,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "서부지구대 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 16.3,
+                            "travel_speed": 29.1,
+                            "distance": 131.15
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 15.4,
+                            "travel_speed": 30.6,
+                            "distance": 131.15
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 73.2,
+                            "travel_speed": 21.9,
+                            "distance": 445.49
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 81.2,
+                            "travel_speed": 19.8,
+                            "distance": 445.49
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 35,
+                        "travel_speed": 30.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "서부지구대 사거리",
+                    "to_node": "솔올야구장 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 67.6,
+                            "travel_speed": 20.4,
+                            "distance": 340.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 67.0,
+                            "travel_speed": 18.3,
+                            "distance": 340.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 124,
+                        "travel_speed": 42.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉치과대학 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 32.6,
+                            "travel_speed": 39.8,
+                            "distance": 369.2
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 33.5,
+                            "travel_speed": 39.7,
+                            "distance": 369.2
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 184,
+                        "travel_speed": 40.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 112.9,
+                            "travel_speed": 17.5,
+                            "distance": 565.54
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 132.4,
+                            "travel_speed": 15.4,
+                            "distance": 565.54
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 13,
+                        "travel_speed": 38.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "오아시스 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 54.1,
+                            "travel_speed": 29.2,
+                            "distance": 441.26
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 44.3,
+                            "travel_speed": 35.9,
+                            "distance": 441.26
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 129.6,
+                            "travel_speed": 41.5,
+                            "distance": 1488.5
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 134.9,
+                            "travel_speed": 39.7,
+                            "distance": 1488.5
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 325,
+                        "travel_speed": 56.0,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 11시 ~ 12시",
+            "district": "경포",
+            "items": [
+                {
+                    "from_node": "법원 입구 삼거리",
+                    "to_node": "보훈지청 (감자바위) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 174.9,
+                            "travel_speed": 31.6,
+                            "distance": 1534.98
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 197.7,
+                            "travel_speed": 27.9,
+                            "distance": 1534.98
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 484,
+                        "travel_speed": 35.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포동사무소 교차로",
+                    "to_node": "법원 입구 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 122.9,
+                            "travel_speed": 27.8,
+                            "distance": 1033.16
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 130.1,
+                            "travel_speed": 28.6,
+                            "distance": 1033.16
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 279,
+                        "travel_speed": 39.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "경포동사무소 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 170.6,
+                            "travel_speed": 25.6,
+                            "distance": 1212.93
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 199.2,
+                            "travel_speed": 21.9,
+                            "distance": 1212.93
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 139.2,
+                            "travel_speed": 26.8,
+                            "distance": 938.66
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 133.0,
+                            "travel_speed": 25.4,
+                            "distance": 938.66
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "율곡교차로",
+                    "to_node": "이명 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 96.2,
+                            "travel_speed": 20.3,
+                            "distance": 536.01
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 91.4,
+                            "travel_speed": 21.1,
+                            "distance": 536.01
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "올림픽파크교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 94.3,
+                            "travel_speed": 37.6,
+                            "distance": 993.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 116.2,
+                            "travel_speed": 30.8,
+                            "distance": 993.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 107,
+                        "travel_speed": 40.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "올림픽파크교차로",
+                    "to_node": "이젠 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 130.3,
+                            "travel_speed": 34.2,
+                            "distance": 1239.56
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 157.3,
+                            "travel_speed": 28.4,
+                            "distance": 1239.56
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 11시 ~ 12시",
+            "district": "도심",
+            "items": [
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 35.0,
+                            "travel_speed": 32.7,
+                            "distance": 305.24
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 40.1,
+                            "travel_speed": 27.4,
+                            "distance": 305.24
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 1,
+                            "travel_time": 124.7,
+                            "travel_speed": 28.6,
+                            "distance": 990.8
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 54.8,
+                            "travel_speed": 33.1,
+                            "distance": 542.0
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 67.7,
+                            "travel_speed": 28.8,
+                            "distance": 542.0
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 150.4,
+                            "travel_speed": 29.2,
+                            "distance": 1228.72
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 137.8,
+                            "travel_speed": 32.1,
+                            "distance": 1228.72
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 280,
+                        "travel_speed": 38.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "입암6주공 오거리",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 113.0,
+                            "travel_speed": 27.2,
+                            "distance": 829.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 116.1,
+                            "travel_speed": 25.7,
+                            "distance": 829.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 202,
+                        "travel_speed": 37.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "입암6주공 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 87.4,
+                            "travel_speed": 18.7,
+                            "distance": 558.26
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 116.2,
+                            "travel_speed": 17.3,
+                            "distance": 558.26
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "강릉관광 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 142.5,
+                            "travel_speed": 21.3,
+                            "distance": 828.19
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 157.4,
+                            "travel_speed": 18.9,
+                            "distance": 828.19
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 176,
+                        "travel_speed": 35.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "강릉역육거리회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 159.5,
+                            "travel_speed": 25.5,
+                            "distance": 1134.58
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 168.6,
+                            "travel_speed": 24.2,
+                            "distance": 1134.58
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉역육거리회전교차로",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 98.3,
+                            "travel_speed": 20.6,
+                            "distance": 561.59
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 73.9,
+                            "travel_speed": 27.4,
+                            "distance": 561.59
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 251,
+                        "travel_speed": 33.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 160.2,
+                            "travel_speed": 27.9,
+                            "distance": 1238.37
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 203.4,
+                            "travel_speed": 21.9,
+                            "distance": 1238.37
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 219,
+                        "travel_speed": 38.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "적십자 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 102.4,
+                            "travel_speed": 23.4,
+                            "distance": 666.57
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 98.3,
+                            "travel_speed": 24.4,
+                            "distance": 666.57
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "적십자 사거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 346.8,
+                            "travel_speed": 26.2,
+                            "distance": 1872.67
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 315.2,
+                            "travel_speed": 21.4,
+                            "distance": 1872.67
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 258,
+                        "travel_speed": 36.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 25.6,
+                            "travel_speed": 26.6,
+                            "distance": 189.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 20.4,
+                            "travel_speed": 33.4,
+                            "distance": 189.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 191,
+                        "travel_speed": 33.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "홍제교 남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 25.5,
+                            "travel_speed": 24.9,
+                            "distance": 174.88
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 34.2,
+                            "travel_speed": 18.4,
+                            "distance": 174.88
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 27,
+                        "travel_speed": 38.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 140.9,
+                            "travel_speed": 26.4,
+                            "distance": 1079.92
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 180.2,
+                            "travel_speed": 21.6,
+                            "distance": 1079.92
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 19.3,
+                            "travel_speed": 36.6,
+                            "distance": 196.95
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 46.7,
+                            "travel_speed": 15.2,
+                            "distance": 196.95
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 114,
+                        "travel_speed": 41.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 29.9,
+                            "travel_speed": 43.9,
+                            "distance": 368.51
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 81.4,
+                            "travel_speed": 16.3,
+                            "distance": 368.51
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "용지각 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 107.7,
+                            "travel_speed": 27.4,
+                            "distance": 803.87
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 81.3,
+                            "travel_speed": 35.6,
+                            "distance": 803.87
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 22.8,
+                            "travel_speed": 36.6,
+                            "distance": 232.29
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 30.5,
+                            "travel_speed": 27.4,
+                            "distance": 232.29
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 46,
+                        "travel_speed": 48.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 66.6,
+                            "travel_speed": 14.4,
+                            "distance": 266.67
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 39.3,
+                            "travel_speed": 24.4,
+                            "distance": 266.67
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "교동사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 30.8,
+                            "travel_speed": 27.5,
+                            "distance": 234.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 21.4,
+                            "travel_speed": 39.5,
+                            "distance": 234.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "남문사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 230.8,
+                            "travel_speed": 31.1,
+                            "distance": 1987.39
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 274.9,
+                            "travel_speed": 26.0,
+                            "distance": 1987.39
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 303,
+                        "travel_speed": 43.7,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 155.8,
+                            "travel_speed": 17.1,
+                            "distance": 738.6
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 188.3,
+                            "travel_speed": 14.1,
+                            "distance": 738.6
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 185,
+                        "travel_speed": 39.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 322.2,
+                            "travel_speed": 26.9,
+                            "distance": 4406.82
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 487.0,
+                            "travel_speed": 32.6,
+                            "distance": 4406.82
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 106.5,
+                            "travel_speed": 26.6,
+                            "distance": 740.09
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 64.2,
+                            "travel_speed": 41.5,
+                            "distance": 740.09
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 235,
+                        "travel_speed": 36.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "부흥마을(더샾아파트후문) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1904.06
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 264.2,
+                            "travel_speed": 25.9,
+                            "distance": 1904.06
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 225,
+                        "travel_speed": 35.4,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 11시 ~ 12시",
+            "district": "송정",
+            "items": [
+                {
+                    "from_node": "공항대교 남단 교차로",
+                    "to_node": "남항진 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 290.0,
+                            "travel_speed": 24.7,
+                            "distance": 1952.44
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 183.7,
+                            "travel_speed": 38.3,
+                            "distance": 1952.44
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 7.9,
+                            "travel_speed": 28.9,
+                            "distance": 63.63
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 16.5,
+                            "travel_speed": 13.9,
+                            "distance": 63.63
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 152,
+                        "travel_speed": 29.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "동인병원 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 155.2,
+                            "travel_speed": 25.8,
+                            "distance": 1112.54
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 128.4,
+                            "travel_speed": 31.2,
+                            "distance": 1112.54
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1163.94
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 227.2,
+                            "travel_speed": 18.4,
+                            "distance": 1163.94
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 155.5,
+                            "travel_speed": 25.9,
+                            "distance": 1048.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 128.6,
+                            "travel_speed": 29.4,
+                            "distance": 1048.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 207.1,
+                            "travel_speed": 31.6,
+                            "distance": 1835.3
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 198.4,
+                            "travel_speed": 33.3,
+                            "distance": 1835.3
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 256.5,
+                            "travel_speed": 37.8,
+                            "distance": 2689.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 269.0,
+                            "travel_speed": 36.0,
+                            "distance": 2689.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 28.1,
+                            "travel_speed": 37.2,
+                            "distance": 290.28
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 29.9,
+                            "travel_speed": 35.0,
+                            "distance": 290.28
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 104.4,
+                            "travel_speed": 32.0,
+                            "distance": 927.33
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 129.2,
+                            "travel_speed": 25.8,
+                            "distance": 927.33
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 176,
+                        "travel_speed": 40.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "송정사거리",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 45.4,
+                            "travel_speed": 25.9,
+                            "distance": 327.5
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 31.6,
+                            "travel_speed": 37.3,
+                            "distance": 327.5
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 126,
+                        "travel_speed": 28.7,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 14시 ~ 15시",
+            "district": "교동",
+            "items": [
+                {
+                    "from_node": "미디어촌 삼거리",
+                    "to_node": "위촌리 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 53.6,
+                            "travel_speed": 28.0,
+                            "distance": 467.84
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 74.0,
+                            "travel_speed": 22.8,
+                            "distance": 467.84
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올야구장 사거리",
+                    "to_node": "솔올중학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 202.2,
+                            "travel_speed": 22.4,
+                            "distance": 1266.97
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 190.9,
+                            "travel_speed": 23.9,
+                            "distance": 1266.97
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 196,
+                        "travel_speed": 40.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올중학교 삼거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 253.5,
+                            "travel_speed": 10.3,
+                            "distance": 777.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 174.7,
+                            "travel_speed": 16.0,
+                            "distance": 777.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "부영6단지 사거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 150.8,
+                            "travel_speed": 26.9,
+                            "distance": 1183.69
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 225.5,
+                            "travel_speed": 18.9,
+                            "distance": 1183.69
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 253,
+                        "travel_speed": 39.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 264.7,
+                            "travel_speed": 19.6,
+                            "distance": 1316.03
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 213.4,
+                            "travel_speed": 22.2,
+                            "distance": 1316.03
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 65,
+                        "travel_speed": 41.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "서부지구대 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 15.9,
+                            "travel_speed": 29.7,
+                            "distance": 131.15
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 16.4,
+                            "travel_speed": 28.8,
+                            "distance": 131.15
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 71.5,
+                            "travel_speed": 22.4,
+                            "distance": 445.49
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 81.5,
+                            "travel_speed": 19.7,
+                            "distance": 445.49
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 40,
+                        "travel_speed": 28.7,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "서부지구대 사거리",
+                    "to_node": "솔올야구장 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 70.2,
+                            "travel_speed": 17.4,
+                            "distance": 340.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 64.6,
+                            "travel_speed": 19.0,
+                            "distance": 340.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 122,
+                        "travel_speed": 43.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉치과대학 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 32.2,
+                            "travel_speed": 40.2,
+                            "distance": 369.19
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 33.4,
+                            "travel_speed": 39.7,
+                            "distance": 369.19
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 173,
+                        "travel_speed": 41.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 133.8,
+                            "travel_speed": 14.7,
+                            "distance": 565.54
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 132.5,
+                            "travel_speed": 15.4,
+                            "distance": 565.54
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 13,
+                        "travel_speed": 38.7,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "오아시스 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 53.5,
+                            "travel_speed": 29.5,
+                            "distance": 441.26
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 43.0,
+                            "travel_speed": 36.9,
+                            "distance": 441.26
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 142.8,
+                            "travel_speed": 39.8,
+                            "distance": 1488.5
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 142.4,
+                            "travel_speed": 37.6,
+                            "distance": 1488.5
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 293,
+                        "travel_speed": 55.3,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 14시 ~ 15시",
+            "district": "경포",
+            "items": [
+                {
+                    "from_node": "법원 입구 삼거리",
+                    "to_node": "보훈지청 (감자바위) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 173.0,
+                            "travel_speed": 31.9,
+                            "distance": 1534.96
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 194.9,
+                            "travel_speed": 28.4,
+                            "distance": 1534.96
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 476,
+                        "travel_speed": 35.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포동사무소 교차로",
+                    "to_node": "법원 입구 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 115.4,
+                            "travel_speed": 28.5,
+                            "distance": 968.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 124.3,
+                            "travel_speed": 28.0,
+                            "distance": 968.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 270,
+                        "travel_speed": 40.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "경포동사무소 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 167.4,
+                            "travel_speed": 26.1,
+                            "distance": 1242.51
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 207.6,
+                            "travel_speed": 21.6,
+                            "distance": 1242.51
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 124.0,
+                            "travel_speed": 27.7,
+                            "distance": 946.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 132.8,
+                            "travel_speed": 25.7,
+                            "distance": 946.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "율곡교차로",
+                    "to_node": "이명 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 97.2,
+                            "travel_speed": 20.1,
+                            "distance": 536.01
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 98.1,
+                            "travel_speed": 19.7,
+                            "distance": 536.01
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "올림픽파크교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 95.9,
+                            "travel_speed": 37.0,
+                            "distance": 993.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 117.3,
+                            "travel_speed": 30.5,
+                            "distance": 993.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 114,
+                        "travel_speed": 40.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "올림픽파크교차로",
+                    "to_node": "이젠 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 123.0,
+                            "travel_speed": 36.2,
+                            "distance": 1455.75
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 171.1,
+                            "travel_speed": 30.6,
+                            "distance": 1455.75
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 14시 ~ 15시",
+            "district": "도심",
+            "items": [
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 34.5,
+                            "travel_speed": 33.2,
+                            "distance": 305.24
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 39.7,
+                            "travel_speed": 27.7,
+                            "distance": 305.24
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 1,
+                            "travel_time": 130.3,
+                            "travel_speed": 28.4,
+                            "distance": 1028.19
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 59.3,
+                            "travel_speed": 30.9,
+                            "distance": 470.29
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 64.3,
+                            "travel_speed": 26.3,
+                            "distance": 470.29
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 155.2,
+                            "travel_speed": 29.3,
+                            "distance": 1244.32
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 144.2,
+                            "travel_speed": 31.1,
+                            "distance": 1244.32
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 285,
+                        "travel_speed": 38.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "입암6주공 오거리",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 104.3,
+                            "travel_speed": 28.5,
+                            "distance": 829.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 115.7,
+                            "travel_speed": 25.8,
+                            "distance": 829.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 187,
+                        "travel_speed": 36.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "입암6주공 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 88.2,
+                            "travel_speed": 18.5,
+                            "distance": 464.37
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 100.7,
+                            "travel_speed": 16.6,
+                            "distance": 464.37
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "강릉관광 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 136.1,
+                            "travel_speed": 21.7,
+                            "distance": 828.19
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 155.4,
+                            "travel_speed": 19.2,
+                            "distance": 828.19
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 180,
+                        "travel_speed": 35.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "강릉역육거리회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 161.6,
+                            "travel_speed": 26.6,
+                            "distance": 1134.58
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 202.6,
+                            "travel_speed": 20.2,
+                            "distance": 1134.58
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉역육거리회전교차로",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 98.4,
+                            "travel_speed": 20.6,
+                            "distance": 561.59
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 76.0,
+                            "travel_speed": 26.6,
+                            "distance": 561.59
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 252,
+                        "travel_speed": 33.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 159.4,
+                            "travel_speed": 28.1,
+                            "distance": 1260.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 216.8,
+                            "travel_speed": 20.9,
+                            "distance": 1260.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 212,
+                        "travel_speed": 38.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "적십자 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 105.2,
+                            "travel_speed": 22.8,
+                            "distance": 666.57
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 98.2,
+                            "travel_speed": 24.4,
+                            "distance": 666.57
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "적십자 사거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 333.4,
+                            "travel_speed": 25.1,
+                            "distance": 2216.03
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 390.6,
+                            "travel_speed": 20.4,
+                            "distance": 2216.03
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 277,
+                        "travel_speed": 35.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 26.5,
+                            "travel_speed": 25.8,
+                            "distance": 189.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 21.1,
+                            "travel_speed": 32.3,
+                            "distance": 189.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 199,
+                        "travel_speed": 33.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "홍제교 남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 25.4,
+                            "travel_speed": 25.1,
+                            "distance": 174.88
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 36.6,
+                            "travel_speed": 17.2,
+                            "distance": 174.88
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 29,
+                        "travel_speed": 39.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 144.8,
+                            "travel_speed": 26.0,
+                            "distance": 1047.54
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 166.8,
+                            "travel_speed": 22.6,
+                            "distance": 1047.54
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 18.9,
+                            "travel_speed": 37.4,
+                            "distance": 196.95
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 41.8,
+                            "travel_speed": 17.0,
+                            "distance": 196.95
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 116,
+                        "travel_speed": 41.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 34.3,
+                            "travel_speed": 38.4,
+                            "distance": 368.51
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 84.2,
+                            "travel_speed": 15.8,
+                            "distance": 368.51
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "용지각 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 108.0,
+                            "travel_speed": 27.3,
+                            "distance": 803.86
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 79.4,
+                            "travel_speed": 36.5,
+                            "distance": 803.86
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 23.2,
+                            "travel_speed": 36.0,
+                            "distance": 232.29
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 28.5,
+                            "travel_speed": 29.3,
+                            "distance": 232.29
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 33,
+                        "travel_speed": 40.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 59.9,
+                            "travel_speed": 16.0,
+                            "distance": 285.06
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 43.6,
+                            "travel_speed": 23.6,
+                            "distance": 285.06
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "교동사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 34.4,
+                            "travel_speed": 24.6,
+                            "distance": 234.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 20.0,
+                            "travel_speed": 42.3,
+                            "distance": 234.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "남문사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 206.5,
+                            "travel_speed": 34.4,
+                            "distance": 2034.17
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 282.2,
+                            "travel_speed": 25.9,
+                            "distance": 2034.17
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 308,
+                        "travel_speed": 44.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 156.2,
+                            "travel_speed": 17.0,
+                            "distance": 738.6
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 192.9,
+                            "travel_speed": 13.8,
+                            "distance": 738.6
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 187,
+                        "travel_speed": 38.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 263.5,
+                            "travel_speed": 24.4,
+                            "distance": 0.0
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 0.0
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 106.2,
+                            "travel_speed": 29.9,
+                            "distance": 740.09
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 65.1,
+                            "travel_speed": 40.9,
+                            "distance": 740.09
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 248,
+                        "travel_speed": 37.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "부흥마을(더샾아파트후문) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 828.7,
+                            "travel_speed": 20.9,
+                            "distance": 1655.77
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 221.9,
+                            "travel_speed": 26.9,
+                            "distance": 1655.77
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 215,
+                        "travel_speed": 34.4,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 14시 ~ 15시",
+            "district": "송정",
+            "items": [
+                {
+                    "from_node": "공항대교 남단 교차로",
+                    "to_node": "남항진 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 288.9,
+                            "travel_speed": 25.6,
+                            "distance": 1952.44
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 259.6,
+                            "travel_speed": 27.1,
+                            "distance": 1952.44
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 7.9,
+                            "travel_speed": 28.7,
+                            "distance": 63.63
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 18.3,
+                            "travel_speed": 12.5,
+                            "distance": 63.63
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 157,
+                        "travel_speed": 29.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "동인병원 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 154.7,
+                            "travel_speed": 25.9,
+                            "distance": 1132.38
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 130.6,
+                            "travel_speed": 31.2,
+                            "distance": 1132.38
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1112.88
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 217.9,
+                            "travel_speed": 18.4,
+                            "distance": 1112.88
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 152.9,
+                            "travel_speed": 26.0,
+                            "distance": 1048.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 116.1,
+                            "travel_speed": 32.5,
+                            "distance": 1048.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 209.6,
+                            "travel_speed": 31.3,
+                            "distance": 1835.3
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 194.8,
+                            "travel_speed": 33.9,
+                            "distance": 1835.3
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 265.9,
+                            "travel_speed": 36.5,
+                            "distance": 2854.1
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 279.9,
+                            "travel_speed": 36.7,
+                            "distance": 2854.1
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 28.5,
+                            "travel_speed": 36.6,
+                            "distance": 290.28
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 30.7,
+                            "travel_speed": 34.1,
+                            "distance": 290.28
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 100.8,
+                            "travel_speed": 33.1,
+                            "distance": 927.33
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 127.3,
+                            "travel_speed": 26.2,
+                            "distance": 927.33
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 186,
+                        "travel_speed": 40.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "송정사거리",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 47.9,
+                            "travel_speed": 24.4,
+                            "distance": 348.82
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 34.9,
+                            "travel_speed": 36.0,
+                            "distance": 348.82
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 123,
+                        "travel_speed": 28.3,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 17시 ~ 18시",
+            "district": "교동",
+            "items": [
+                {
+                    "from_node": "미디어촌 삼거리",
+                    "to_node": "위촌리 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 60.0,
+                            "travel_speed": 25.6,
+                            "distance": 417.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 60.5,
+                            "travel_speed": 24.8,
+                            "distance": 417.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올야구장 사거리",
+                    "to_node": "솔올중학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 194.8,
+                            "travel_speed": 22.1,
+                            "distance": 1303.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 196.8,
+                            "travel_speed": 23.8,
+                            "distance": 1303.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 241,
+                        "travel_speed": 39.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "솔올중학교 삼거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 251.0,
+                            "travel_speed": 10.4,
+                            "distance": 722.91
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 158.1,
+                            "travel_speed": 16.5,
+                            "distance": 722.91
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "부영6단지 사거리",
+                    "to_node": "송원불가마 3거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 210.6,
+                            "travel_speed": 23.4,
+                            "distance": 1185.82
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 207.7,
+                            "travel_speed": 20.6,
+                            "distance": 1185.82
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 289,
+                        "travel_speed": 38.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 230.0,
+                            "travel_speed": 21.4,
+                            "distance": 1351.8
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 218.9,
+                            "travel_speed": 22.2,
+                            "distance": 1351.8
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 92,
+                        "travel_speed": 41.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "서부지구대 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 15.2,
+                            "travel_speed": 31.1,
+                            "distance": 131.15
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 18.2,
+                            "travel_speed": 26.0,
+                            "distance": 131.15
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포초등학교 사거리",
+                    "to_node": "부영6단지 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 72.6,
+                            "travel_speed": 22.1,
+                            "distance": 445.49
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 80.9,
+                            "travel_speed": 19.8,
+                            "distance": 445.49
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 68,
+                        "travel_speed": 28.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "서부지구대 사거리",
+                    "to_node": "솔올야구장 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 77.2,
+                            "travel_speed": 17.4,
+                            "distance": 340.36
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 68.4,
+                            "travel_speed": 17.9,
+                            "distance": 340.36
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 151,
+                        "travel_speed": 41.6,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉치과대학 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 32.0,
+                            "travel_speed": 40.5,
+                            "distance": 369.2
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 33.4,
+                            "travel_speed": 39.8,
+                            "distance": 369.2
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 156,
+                        "travel_speed": 41.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "솔올교차로 (7번국도)",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 113.4,
+                            "travel_speed": 17.4,
+                            "distance": 565.54
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 124.0,
+                            "travel_speed": 16.4,
+                            "distance": 565.54
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 18,
+                        "travel_speed": 39.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교1동주민센터 사거리",
+                    "to_node": "오아시스 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 56.5,
+                            "travel_speed": 28.0,
+                            "distance": 441.26
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 43.5,
+                            "travel_speed": 36.5,
+                            "distance": 441.26
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동 2주공 삼거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 145.0,
+                            "travel_speed": 37.5,
+                            "distance": 1561.66
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 156.2,
+                            "travel_speed": 36.0,
+                            "distance": 1561.66
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 375,
+                        "travel_speed": 56.4,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 17시 ~ 18시",
+            "district": "경포",
+            "items": [
+                {
+                    "from_node": "법원 입구 삼거리",
+                    "to_node": "보훈지청 (감자바위) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 176.4,
+                            "travel_speed": 31.3,
+                            "distance": 1534.97
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 195.3,
+                            "travel_speed": 28.3,
+                            "distance": 1534.97
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 431,
+                        "travel_speed": 35.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포동사무소 교차로",
+                    "to_node": "법원 입구 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 121.8,
+                            "travel_speed": 27.3,
+                            "distance": 959.71
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 121.6,
+                            "travel_speed": 28.4,
+                            "distance": 959.71
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 197,
+                        "travel_speed": 40.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "경포동사무소 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 172.8,
+                            "travel_speed": 25.3,
+                            "distance": 1230.29
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 208.2,
+                            "travel_speed": 21.3,
+                            "distance": 1230.29
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "율곡교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 123.3,
+                            "travel_speed": 27.8,
+                            "distance": 938.66
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 134.1,
+                            "travel_speed": 25.2,
+                            "distance": 938.66
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "율곡교차로",
+                    "to_node": "이명 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 89.7,
+                            "travel_speed": 21.8,
+                            "distance": 536.01
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 87.1,
+                            "travel_speed": 22.2,
+                            "distance": 536.01
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "경포 오거리",
+                    "to_node": "올림픽파크교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 94.9,
+                            "travel_speed": 37.4,
+                            "distance": 993.4
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 117.9,
+                            "travel_speed": 30.3,
+                            "distance": 993.4
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 107,
+                        "travel_speed": 40.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "올림픽파크교차로",
+                    "to_node": "이젠 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 132.3,
+                            "travel_speed": 33.6,
+                            "distance": 1239.56
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 156.0,
+                            "travel_speed": 28.6,
+                            "distance": 1239.56
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 17시 ~ 18시",
+            "district": "도심",
+            "items": [
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 34.1,
+                            "travel_speed": 32.2,
+                            "distance": 305.24
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 40.5,
+                            "travel_speed": 27.2,
+                            "distance": 305.24
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 1,
+                            "travel_time": 131.5,
+                            "travel_speed": 28.0,
+                            "distance": 1023.1
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 53.2,
+                            "travel_speed": 32.1,
+                            "distance": 470.29
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 58.4,
+                            "travel_speed": 29.0,
+                            "distance": 470.29
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 169.2,
+                            "travel_speed": 28.5,
+                            "distance": 1215.74
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 137.7,
+                            "travel_speed": 31.8,
+                            "distance": 1215.74
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 298,
+                        "travel_speed": 37.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "입암6주공 오거리",
+                    "to_node": "포남교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 113.1,
+                            "travel_speed": 27.0,
+                            "distance": 829.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 118.6,
+                            "travel_speed": 25.2,
+                            "distance": 829.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 195,
+                        "travel_speed": 35.9,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "월드컵대교남단 교차로",
+                    "to_node": "입암6주공 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 88.5,
+                            "travel_speed": 18.4,
+                            "distance": 482.03
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 105.6,
+                            "travel_speed": 16.4,
+                            "distance": 482.03
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "강릉관광 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 144.6,
+                            "travel_speed": 20.5,
+                            "distance": 828.19
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 153.5,
+                            "travel_speed": 19.4,
+                            "distance": 828.19
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 200,
+                        "travel_speed": 34.8,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "강릉역육거리회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 151.4,
+                            "travel_speed": 26.9,
+                            "distance": 1134.58
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 146.4,
+                            "travel_speed": 27.9,
+                            "distance": 1134.58
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉역육거리회전교차로",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 97.8,
+                            "travel_speed": 20.7,
+                            "distance": 561.59
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 71.9,
+                            "travel_speed": 28.1,
+                            "distance": 561.59
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 252,
+                        "travel_speed": 33.2,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 170.0,
+                            "travel_speed": 26.3,
+                            "distance": 1238.35
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 204.9,
+                            "travel_speed": 21.8,
+                            "distance": 1238.35
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 246,
+                        "travel_speed": 37.3,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "교동사거리",
+                    "to_node": "적십자 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 105.5,
+                            "travel_speed": 22.7,
+                            "distance": 666.57
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 104.8,
+                            "travel_speed": 22.9,
+                            "distance": 666.57
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "적십자 사거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 264.8,
+                            "travel_speed": 25.3,
+                            "distance": 2060.15
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 357.2,
+                            "travel_speed": 20.8,
+                            "distance": 2060.15
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 266,
+                        "travel_speed": 33.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "터미널 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 25.0,
+                            "travel_speed": 27.3,
+                            "distance": 189.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 20.4,
+                            "travel_speed": 33.4,
+                            "distance": 189.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 187,
+                        "travel_speed": 33.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉시청 삼거리",
+                    "to_node": "홍제교 남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 30.1,
+                            "travel_speed": 21.1,
+                            "distance": 174.88
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 35.8,
+                            "travel_speed": 17.6,
+                            "distance": 174.88
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 26,
+                        "travel_speed": 35.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "포남교 북단교차로",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 146.8,
+                            "travel_speed": 25.8,
+                            "distance": 1037.85
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 171.1,
+                            "travel_speed": 21.8,
+                            "distance": 1037.85
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉관광 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 18.1,
+                            "travel_speed": 39.0,
+                            "distance": 196.95
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 45.8,
+                            "travel_speed": 15.5,
+                            "distance": 196.95
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 122,
+                        "travel_speed": 42.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "포남시장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 32.1,
+                            "travel_speed": 41.0,
+                            "distance": 368.51
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 83.6,
+                            "travel_speed": 15.9,
+                            "distance": 368.51
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "용지각 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 107.6,
+                            "travel_speed": 27.4,
+                            "distance": 803.86
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 80.3,
+                            "travel_speed": 36.0,
+                            "distance": 803.86
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "옥천오거리",
+                    "to_node": "임당회전교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 29.0,
+                            "travel_speed": 28.8,
+                            "distance": 232.28
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 27.6,
+                            "travel_speed": 30.3,
+                            "distance": 232.28
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 65,
+                        "travel_speed": 44.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 69.6,
+                            "travel_speed": 14.5,
+                            "distance": 266.67
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 37.4,
+                            "travel_speed": 25.7,
+                            "distance": 266.67
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "교동사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 34.2,
+                            "travel_speed": 24.7,
+                            "distance": 234.53
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 21.1,
+                            "travel_speed": 40.0,
+                            "distance": 234.53
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "객사문(한국은행) 교차로",
+                    "to_node": "남문사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 246.5,
+                            "travel_speed": 29.3,
+                            "distance": 1980.85
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 260.2,
+                            "travel_speed": 27.4,
+                            "distance": 1980.85
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 349,
+                        "travel_speed": 43.5,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 153.1,
+                            "travel_speed": 17.4,
+                            "distance": 738.6
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 193.0,
+                            "travel_speed": 13.8,
+                            "distance": 738.6
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 201,
+                        "travel_speed": 38.8,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "용지각 사거리",
+                    "to_node": "월드컵대교남단 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 322.6,
+                            "travel_speed": 22.6,
+                            "distance": 0.0
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 0.0
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "옥천오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 105.5,
+                            "travel_speed": 28.5,
+                            "distance": 740.15
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 63.3,
+                            "travel_speed": 42.1,
+                            "distance": 740.15
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 243,
+                        "travel_speed": 36.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉교 남단 교차로",
+                    "to_node": "부흥마을(더샾아파트후문) 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1614.69
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 222.6,
+                            "travel_speed": 26.1,
+                            "distance": 1614.69
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 223,
+                        "travel_speed": 34.4,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        },
+        {
+            "hour_label": "7월 1일 17시 ~ 18시",
+            "district": "송정",
+            "items": [
+                {
+                    "from_node": "공항대교 남단 교차로",
+                    "to_node": "남항진 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 299.1,
+                            "travel_speed": 25.8,
+                            "distance": 1952.44
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 247.2,
+                            "travel_speed": 28.4,
+                            "distance": 1952.44
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "행복예식장 교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 8.2,
+                            "travel_speed": 27.6,
+                            "distance": 63.63
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 17.6,
+                            "travel_speed": 13.0,
+                            "distance": 63.63
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 180,
+                        "travel_speed": 29.4,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "강릉경찰서 사거리",
+                    "to_node": "동인병원 오거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 156.5,
+                            "travel_speed": 25.6,
+                            "distance": 1166.04
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 134.2,
+                            "travel_speed": 31.3,
+                            "distance": 1166.04
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동인병원 오거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 0.0,
+                            "travel_speed": 0.0,
+                            "distance": 1133.35
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 224.4,
+                            "travel_speed": 18.2,
+                            "distance": 1133.35
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "한솔초등학교 사거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 150.8,
+                            "travel_speed": 26.0,
+                            "distance": 1048.64
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 115.5,
+                            "travel_speed": 32.7,
+                            "distance": 1048.64
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "포남교 북단교차로",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 209.0,
+                            "travel_speed": 31.3,
+                            "distance": 1835.3
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 195.2,
+                            "travel_speed": 33.8,
+                            "distance": 1835.3
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "노블레스 삼거리",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 272.2,
+                            "travel_speed": 35.6,
+                            "distance": 2689.11
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 263.1,
+                            "travel_speed": 36.8,
+                            "distance": 2689.11
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "이마트 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 28.1,
+                            "travel_speed": 37.1,
+                            "distance": 290.25
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 30.6,
+                            "travel_speed": 34.1,
+                            "distance": 290.25
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 0,
+                        "travel_speed": 0.0,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "동명초등학교 교차로",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 100.4,
+                            "travel_speed": 33.3,
+                            "distance": 927.33
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 141.6,
+                            "travel_speed": 23.6,
+                            "distance": 927.33
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 189,
+                        "travel_speed": 40.1,
+                        "travel_time": 0.0
+                    }
+                },
+                {
+                    "from_node": "송정사거리",
+                    "to_node": "오성학교 삼거리",
+                    "directions": [
+                        {
+                            "updown": 0,
+                            "travel_time": 45.6,
+                            "travel_speed": 25.7,
+                            "distance": 327.5
+                        },
+                        {
+                            "updown": 1,
+                            "travel_time": 31.6,
+                            "travel_speed": 37.3,
+                            "distance": 327.5
+                        }
+                    ],
+                    "data_collection": {
+                        "traffic_vol": 117,
+                        "travel_speed": 28.5,
+                        "travel_time": 0.0
+                    }
+                }
+            ]
+        }
+    ]
+}
