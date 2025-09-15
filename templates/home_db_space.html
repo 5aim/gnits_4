@@ -2,13 +2,210 @@
 {% block title %}DB 테이블 스페이스 조회{% endblock %}
 
 {% block content %}
-  <section class="page-title">
-    <h1>DB 테이블 스페이스 조회</h1>
-    <div class="sub">시스템 리소스 점검 / 용량 현황</div>
-  </section>
+<section class="page-title">
+  <h1>DB 테이블 스페이스 조회</h1>
+  <div class="sub">시스템 리소스 점검 / 용량 현황 · 마지막 갱신: {{ fetched_at }}</div>
+</section>
 
-  <div class="card">
-    <h3 class="card-title">요약</h3>
-    <p>여기에 테이블스페이스/세그먼트/인덱스 사용량을 표로 표시할 예정입니다.</p>
+<div class="card">
+  <div class="card-header">
+    <span class="env-badge">{{ (FLASK_ENV or 'PROD')|upper }}</span>
+    <span class="health">총 테이블 <strong>{{ table_count }}</strong>개</span>
   </div>
+
+  <h3 class="card-title">스키마: <strong>{{ owner }}</strong></h3>
+
+  <!-- 좌/우 2단 레이아웃 -->
+  <div class="grid">
+    <!-- LEFT: 테이블 목록 + 검색 -->
+    <aside class="left">
+      <div class="toolbar">
+        <input id="table-search" type="text" placeholder="테이블명 검색…" />
+      </div>
+
+      <ul id="table-list" class="table-list">
+        {% for t in table_names %}
+          <li class="table-item" data-tbl="{{ t }}">
+            <span class="badge">TBL</span>
+            <button type="button" class="tbtn" title="컬럼 보기">{{ t }}</button>
+          </li>
+        {% endfor %}
+        {% if not table_names %}
+          <li class="table-item empty">표시할 테이블이 없습니다.</li>
+        {% endif %}
+      </ul>
+    </aside>
+
+    <!-- RIGHT: 컬럼 상세 -->
+    <section class="right">
+      <header class="detail-head">
+        <div>
+          <div class="caption">선택된 테이블</div>
+          <div id="sel-owner" class="owner">{{ owner }}</div>
+          <h3 id="sel-table" class="tname">테이블을 선택하세요</h3>
+        </div>
+        <div id="count-badge" class="count-badge">— cols</div>
+      </header>
+
+      <div class="detail-body">
+        <div id="placeholder" class="placeholder">왼쪽 목록에서 테이블을 클릭하면 컬럼 정보가 표시됩니다.</div>
+
+        <table id="col-table" class="col-table" style="display:none">
+          <thead>
+            <tr>
+              <th style="width:56px">#</th>
+              <th>컬럼명</th>
+              <th style="width:220px">데이터 타입</th>
+              <th style="width:72px">NULL</th>
+              <th>코멘트</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 스타일 -->
+<style>
+  .card { padding: 18px; border-radius: 16px; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+  .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .env-badge { background:#111827; color:#fff; font-weight:700; border-radius:9999px; padding:4px 10px; font-size:12px; }
+  .health strong { font-weight:800; }
+  .card-title { margin: 12px 0 8px; font-size: 18px; font-weight: 700; }
+
+  .grid{display:grid; grid-template-columns:360px 1fr; gap:16px; align-items:start;}
+  .left{min-width:280px;}
+  .toolbar{margin:8px 0 12px;}
+  #table-search{width:100%; height:38px; padding:0 12px; border:1px solid #e5e7eb; border-radius:10px; outline:none;}
+  #table-search:focus{border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.15);}
+  .table-list{list-style:none; padding: 0 4px; margin:0; display:flex; flex-direction:column; gap:8px; max-height:620px; overflow:auto;}
+  .table-item{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #edeef0; border-radius:12px; background:#fafafa; transition: background .15s, border-color .15s;}
+  .table-item:hover{background:#f5f7ff; border-color:#dfe3ff;}
+  .table-item.active{
+  outline: none;
+  box-shadow: 0 0 0 2px #6366f1 inset;  /* ← 요소 내부에 그려서 클립 없음 */
+  background:#eef2ff;
+  border-color:#c7d2fe;
+}
+  .table-item.empty{justify-content:center; color:#6b7280;}
+  .badge{font-size:12px; font-weight:700; color:#155e75; background:#e0f2fe; border-radius:8px; padding:3px 8px;}
+  .tbtn{all:unset; cursor:pointer; color:#111827; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:14px;}
+
+  .right{min-height:420px; border:1px solid #edeef0; border-radius:12px; background:#fff;}
+  .detail-head{display:flex; justify-content:space-between; align-items:flex-end; padding:14px 16px; border-bottom:1px solid #edeef0;}
+  .caption{font-size:12px; color:#6b7280;}
+  .owner{font-size:12px; color:#0ea5e9; font-weight:700; margin-top:2px;}
+  .tname{margin:4px 0 0;}
+  .count-badge{background:#f1f5f9; color:#0f172a; border-radius:9999px; padding:6px 12px; font-weight:700;}
+  .detail-body{padding:12px 16px;}
+  .placeholder{color:#6b7280;}
+
+  .col-table{width:100%; border-collapse:separate; border-spacing:0;}
+  .col-table thead th{font-size:12px; text-align:left; color:#6b7280; border-bottom:1px solid #edeef0; padding:8px;}
+  .col-table tbody td{padding:10px 8px; border-bottom:1px solid #f1f5f9; vertical-align:top;}
+  .pill-ok{color:#16a34a; font-weight:700;}
+  .pill-no{color:#dc2626; font-weight:700;}
+</style>
+
+<!-- 스크립트 -->
+<script>
+(function(){
+  const OWNER = {{ owner|tojson }};
+  const PRESELECT = {{ (preselect_table or '')|tojson }};
+
+  // 좌측: 필터
+  const input = document.getElementById('table-search');
+  const list  = document.getElementById('table-list');
+  const items = Array.from(list.querySelectorAll('.table-item:not(.empty)'));
+
+  function applyFilter() {
+    const q = (input.value || '').trim().toLowerCase();
+    items.forEach(li => {
+      const name = li.dataset.tbl.toLowerCase();
+      li.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+  }
+  input.addEventListener('input', applyFilter);
+
+  // 우측: DOM 핸들
+  const ownerEl = document.getElementById('sel-owner');
+  const tableEl = document.getElementById('sel-table');
+  const countEl = document.getElementById('count-badge');
+  const phEl    = document.getElementById('placeholder');
+  const colTbl  = document.getElementById('col-table');
+  const colTbd  = colTbl.querySelector('tbody');
+
+  function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadColumns(owner, table){
+    // UI: 로딩 상태
+    ownerEl.textContent = owner;
+    tableEl.textContent = table;
+    countEl.textContent = '…';
+    phEl.style.display = '';
+    phEl.textContent = '로딩 중…';
+    colTbl.style.display = 'none';
+    colTbd.innerHTML = '';
+
+    try{
+      const url = `/api/db/columns?owner=${encodeURIComponent(owner)}&table=${encodeURIComponent(table)}`;
+      const r = await fetch(url, {cache:'no-store'});
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+
+      countEl.textContent = `${data.count} cols`;
+
+      if(!data.columns || !data.columns.length){
+        phEl.style.display = '';
+        phEl.textContent = '컬럼이 없습니다.';
+        colTbl.style.display = 'none';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      data.columns.forEach((c, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${esc(c.column_id ?? (idx+1))}</td>
+          <td>${esc(c.column_name)}</td>
+          <td>${esc(c.data_type)}</td>
+          <td>${c.nullable ? '<span class="pill-ok">Y</span>' : '<span class="pill-no">N</span>'}</td>
+          <td>${esc(c.comment)}</td>
+        `;
+        frag.appendChild(tr);
+      });
+      colTbd.appendChild(frag);
+      phEl.style.display = 'none';
+      colTbl.style.display = '';
+    }catch(e){
+      phEl.style.display = '';
+      phEl.textContent = '로딩 실패: ' + e.message;
+      colTbl.style.display = 'none';
+    }
+  }
+
+  // 리스트 클릭
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('.table-item');
+    if(!li) return;
+    items.forEach(x => x.classList.remove('active'));
+    li.classList.add('active');
+    loadColumns(OWNER, li.dataset.tbl);
+  });
+
+  // 프리셀렉트 자동 로딩
+  document.addEventListener('DOMContentLoaded', () => {
+    if(!PRESELECT) return;
+    const li = document.querySelector(`.table-item[data-tbl="${CSS.escape(PRESELECT)}"]`);
+    if(li){
+      li.classList.add('active');
+      loadColumns(OWNER, PRESELECT);
+      // 스크롤 위치 보정
+      li.scrollIntoView({block:'nearest'});
+    }
+  });
+})();
+</script>
 {% endblock %}

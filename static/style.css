@@ -238,47 +238,19 @@ button:hover {
     display: inline-block;
 }
 
-.home-page .dot.ok {
-    background: #22c55e;
-}
+.home-page .dot.ok { background: #22c55e; }
 
-/* green */
-.home-page .dot.warn {
-    background: #f59e0b;
-}
+.home-page .dot.fail { background: #dc2626; }
 
-/* amber */
-.home-page .dot.err {
-    background: #ef4444;
-}
+.home-page .label { color: #111827; }
 
-/* red */
+.home-page .state { font-weight: 700; }
 
-.home-page .label {
-    color: #111827;
-}
+.home-page .state.ok { color: #16a34a; }
 
-.home-page .state {
-    font-weight: 700;
-}
+.home-page .state.fail { color: #dc2626; font-weight: 600; }
 
-.home-page .state.ok {
-    color: #16a34a;
-}
-
-.home-page .state.warn {
-    color: #d97706;
-}
-
-.home-page .state.err {
-    color: #dc2626;
-}
-
-.home-page .note {
-    color: #6b7280;
-    font-size: 12px;
-    margin-top: 12px;
-}
+.home-page .note { color: #6b7280; font-size: 12px; margin-top: 12px; }
 
 .home-page .menu-item.active { background: #e8eef9; font-weight: 700; }
 

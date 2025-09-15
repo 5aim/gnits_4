@@ -9,19 +9,130 @@
 
   <div class="card">
     <div class="card-header">
-      <span class="env-badge">PROD</span>
-      <span class="health">건강도 <strong>100%</strong></span>
+      <span class="env-badge">{{ (FLASK_ENV or 'PROD')|upper }}</span>
+      <span class="health">건강도 <strong>—</strong></span>
     </div>
 
     <h3 class="card-title">상태 확인 항목</h3>
 
     <ul class="status-list">
-      <li><span class="dot ok"></span><span class="label">데이터베이스 연결 상태 확인</span><span class="state ok">정상 동작</span></li>
-      <li><span class="dot ok"></span><span class="label">딥러닝 서버 실행 상태 확인</span><span class="state ok">정상 동작</span></li>
-      <li><span class="dot ok"></span><span class="label">프론트서버 실행 상태 확인</span><span class="state ok">정상 동작</span></li>
-      <li><span class="dot ok"></span><span class="label">백엔드 서버 실행 상태 확인</span><span class="state ok">정상 동작</span></li>
+      <li id="row-db">
+        <span class="dot pending"></span>
+        <span class="label">데이터베이스 연결 상태 확인</span>
+        <span class="state pending" id="state-db">점검 중</span>
+      </li>
+      <li id="row-dl">
+        <span class="dot pending"></span>
+        <span class="label">딥러닝 서버 실행 상태 확인</span>
+        <span class="state pending" id="state-dl">점검 중</span>
+      </li>
+      <li id="row-frontend">
+        <span class="dot pending"></span>
+        <span class="label">프론트서버 실행 상태 확인</span>
+        <span class="state pending" id="state-frontend">점검 중</span>
+      </li>
+      <li id="row-backend">
+        <span class="dot pending"></span>
+        <span class="label">백엔드 서버 실행 상태 확인</span>
+        <span class="state pending" id="state-backend">점검 중</span>
+      </li>
     </ul>
 
-    <div class="note">* 각 항목 앞의 초록색 원은 서비스의 정상 동작을 의미합니다.</div>
+    <div class="note">* 초록=정상, 빨강=오류, 회색=점검 중</div>
   </div>
+
+  <!-- 상태 점 색상 (간단 스타일) -->
+  <style>
+    .dot{display:inline-block;width:10px;height:10px;border-radius:9999px;margin-right:6px}
+    .state{margin-left:8px}
+    .dot.pending{background:#9ca3af}.state.pending{color:#6b7280}
+    .dot.ok{background:#16a34a}.state.ok{color:#16a34a;font-weight:600}
+    .dot.fail{background:#dc2626}.state.fail{color:#dc2626;font-weight:600}
+  </style>
+
+  <!-- 서버사이드 초기 반영 + 클라이언트 주기 갱신 -->
+  <script>
+  // 0) 유틸: 한 줄 적용 함수 + 로그 보강
+  function applyRow(key, item) {
+  const row = document.getElementById(`row-${key}`);
+  const state = document.getElementById(`state-${key}`);
+  if (!row || !state) return;
+
+  const dot = row.querySelector('.dot');
+  dot.classList.remove('pending','ok','fail');
+  state.classList.remove('pending','ok','fail');
+
+  if (item && item.ok) {
+    dot.classList.add('ok');
+    state.classList.add('ok');
+    state.removeAttribute('title');
+    state.textContent = `정상 동작 (${item.ms ?? item.latency_ms ?? '-'} ms)`;
+  } else {
+    dot.classList.add('fail');
+    state.classList.add('fail');
+
+    // 짧은 문구(hint)만 화면에
+    const shortMsg = item?.hint || item?.reason || '서버 꺼짐';
+    state.textContent = `오류 (${shortMsg})`;
+
+    // 전체 원문(detail)은 툴팁으로
+    const full = item?.detail || '';
+    if (full) state.title = full;
+  }
+}
+
+  // 1) 서버사이드 전달값 초기화
+  try {
+    // tojson은 JS에서 바로 파싱 가능한 JSON을 출력함
+    const initial = {{ health_items|tojson|safe }};
+    console.log('[initial health_items]', initial);
+
+    // 라우트에서 dict 형태로 넘겼다면: {db:{}, dl:{}, ...}
+    if (initial && typeof initial === 'object' && !Array.isArray(initial)) {
+      for (const [k, v] of Object.entries(initial)) {
+        console.log(`[init] ${k}:`, v);
+        applyRow(k, v);
+      }
+    } else {
+      console.warn('[initial] 구조가 예상과 다릅니다. (object 아님)', initial);
+    }
+  } catch (e) {
+    console.error('[initial parse error]', e);
+  }
+
+  // 2) 클라이언트 주기 갱신 (/api/health)
+  async function refreshHealth() {
+  try {
+    const res = await fetch('/api/health', { cache: 'no-store' });
+    const data = await res.json();
+
+    const okCount = (data.items || []).filter(i => i.ok).length;
+    const percent = Math.round((okCount / (data.items?.length || 1)) * 100);
+    const healthEl = document.querySelector('.health strong');
+    if (healthEl) healthEl.textContent = `${percent}%`;
+
+    (data.items || []).forEach(it => {
+      applyRow(it.key, {
+        ok: it.ok,
+        ms: it.latency_ms,
+        hint: it.hint,
+        reason: it.reason,
+        detail: it.detail
+      });
+    });
+
+    const sub = document.querySelector('.sub');
+    if (sub) sub.textContent = `실시간 상태 점검 · 마지막 갱신: ${data.last_checked}`;
+  } catch (e) {
+    ['db','dl','frontend','backend'].forEach(k => {
+      applyRow(k, { ok: false, hint: 'health API 실패', detail: String(e) });
+    });
+  }
+}
+
+  document.addEventListener('DOMContentLoaded', () => {
+    refreshHealth();               // 첫 갱신
+    setInterval(refreshHealth, 10000); // 10초마다
+  });
+  </script>
 {% endblock %}

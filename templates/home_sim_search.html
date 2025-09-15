@@ -2,13 +2,360 @@
 {% block title %}시뮬레이션 교통 분석 데이터 검색{% endblock %}
 
 {% block content %}
-  <section class="page-title">
-    <h1>시뮬레이션 교통 분석 데이터 검색</h1>
-    <div class="sub">분석 시뮬레이션 선택 · 일자 · 시간 · 권역 · 분석 항목</div>
-  </section>
+<section class="page-title">
+  <h1>시뮬레이션 교통 분석 데이터 검색</h1>
+  <div class="sub">허용 테이블에서 필터·페이지네이션으로 결과 조회</div>
+</section>
 
-  <div class="card">
-    <h3 class="card-title">검색 폼</h3>
-    <p>여기에 날짜/시간/권역/항목 선택 폼과 결과 테이블이 들어갑니다.</p>
+<div class="card">
+  <div class="card-header">
+    <span class="env-badge">{{ (FLASK_ENV or 'PROD')|upper }}</span>
+    <span class="health">스키마 <strong>{{ owner }}</strong></span>
   </div>
+
+  <div class="page-grid">
+    <!-- LEFT: 허용 테이블 목록 -->
+    <aside class="left">
+      <div class="toolbar">
+        <input id="tbl-search" type="text" placeholder="테이블명 검색…" />
+      </div>
+      <ul id="tbl-list" class="tbl-list">
+        {% for t in allowed_tables %}
+        <li class="tbl-item" data-tbl="{{ t.name }}">
+          <span class="badge">TBL</span>
+          <button type="button" class="tbtn" title="{{ t.label }}">{{ t.name }}</button>
+          <div class="caption">{{ t.label }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+
+    <!-- RIGHT: 필터 + 결과 테이블 + 페이지네이션 -->
+    <section class="right">
+      <header class="head">
+        <div>
+          <div class="caption">선택 테이블</div>
+          <h3 id="sel-table">선택하세요</h3>
+          <div id="sel-desc" class="desc"></div>
+        </div>
+        <div class="filters" id="filters"></div>
+      </header>
+
+      <div class="actions">
+        <button id="btn-search" class="btn">검색</button>
+        <label class="pp">
+          페이지 크기
+          <select id="page-size">
+            <option>20</option>
+            <option selected>50</option>
+            <option>100</option>
+            <option>200</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="results">
+        <div id="placeholder" class="placeholder">왼쪽에서 테이블을 선택하고, 필요하면 필터를 입력한 뒤 검색하세요.</div>
+        <div id="meta" class="meta" style="display:none"></div>
+        <div class="table-wrap" style="display:none">
+          <table id="grid" class="grid">
+            <colgroup id="grid-cols"></colgroup>
+            <thead><tr id="grid-head"></tr></thead>
+            <tbody id="grid-body"></tbody>
+          </table>
+        </div>
+        <div id="pager" class="pager" style="display:none">
+          <button class="pg" id="pg-prev">이전</button>
+          <span class="pg-info" id="pg-info">1 / 1</span>
+          <button class="pg" id="pg-next">다음</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<style>
+  /* ========== 공통 카드/그리드 ========== */
+  .card{padding:18px;border-radius:16px;background:#fff;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+  .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .env-badge{background:#111827;color:#fff;font-weight:700;border-radius:9999px;padding:4px 10px;font-size:12px}
+  .page-grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+
+  /* ========== 좌측 리스트 ========== */
+  .left{min-width:280px}
+  .toolbar{margin:8px 0 12px}
+  #tbl-search{width:100%;height:38px;padding:0 12px;border:1px solid #e5e7eb;border-radius:10px}
+  #tbl-search:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+  .tbl-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;max-height:620px;overflow:auto}
+  .tbl-item{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border:1px solid #edeef0;border-radius:12px;background:#fafafa}
+  .tbl-item:hover{background:#f5f7ff;border-color:#dfe3ff}
+  .tbl-item.active{outline:none;box-shadow:0 0 0 2px #6366f1 inset;background:#eef2ff;border-color:#c7d2fe}
+  .badge{font-size:12px;font-weight:700;color:#155e75;background:#e0f2fe;border-radius:8px;padding:3px 8px;align-self:flex-start}
+  .tbtn{all:unset;cursor:pointer;color:#111827;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px}
+  .caption{color:#6b7280;font-size:12px}
+
+  /* ========== 우측 패널 ========== */
+  .right{min-height:420px;border:1px solid #edeef0;border-radius:12px;background:#fff}
+
+  /* 헤더 레이아웃: '선택 테이블' 가로 한 줄, 설명/필터는 다음 줄 */
+  .head{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-bottom:1px solid #edeef0}
+  .head > div:first-child{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .head > div:first-child .caption{order:1}
+  .head > div:first-child #sel-table{order:2}
+  .head > div:first-child #sel-desc{order:3;flex-basis:100%;margin-top:2px}
+  .desc{color:#6b7280;font-size:12px;margin-top:4px}
+
+  .filters{order:4;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;width:100%}
+  .filters .f{display:flex;flex-direction:column;gap:6px}
+  .filters label{font-size:12px;color:#6b7280}
+  .filters input{height:34px;border:1px solid #e5e7eb;border-radius:8px;padding:0 10px;width:180px}
+
+  .actions{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid #f1f5f9}
+  .btn{padding:8px 14px;border-radius:10px;border:1px solid #4f46e5;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer}
+  .pp{font-size:12px;color:#374151;display:flex;gap:8px;align-items:center}
+
+  #results{padding:12px 16px}
+  .placeholder{color:#6b7280}
+  .meta{color:#374151;margin-bottom:8px}
+
+  /* ========== 결과 테이블 ========== */
+  .table-wrap{max-width:100%;overflow:auto;border:1px solid #f1f5f9;border-radius:12px}
+
+  /* 폭 100% + 열 균등분배(퍼센트), 헤더/바디 완전 정렬 */
+  table.grid{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    table-layout:fixed;            /* colgroup 폭을 신뢰 */
+  }
+  /* thead/td 공통 */
+  table.grid thead th, table.grid tbody td{
+    box-sizing:border-box;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    padding:8px;
+  }
+  /* 헤더는 항상 왼쪽 정렬 + sticky */
+  table.grid thead th{
+    position:sticky; top:0;
+    background:#f8fafc;
+    border-bottom:1px solid #e5e7eb;
+    text-align:left;
+    font-size:12px; color:#475569;
+    z-index:1; /* 스크롤 시 바디 위에 */
+  }
+  /* 바디 셀 */
+  table.grid tbody td{
+    border-bottom:1px solid #f1f5f9;
+    font-size:13px;
+    vertical-align:top;
+  }
+
+  /* 숫자 우측정렬이 필요하면 아래 두 줄만 켜기
+  #grid-body td:nth-child(n+2){ text-align:right; }
+  #grid-head th:nth-child(n+2){ text-align:right; }
+  */
+
+  .pager{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px}
+  .pg{padding:6px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer}
+  .pg-info{font-weight:700}
+
+  /* 반응형 */
+  @media (max-width:1024px){
+    .head > div:first-child{gap:6px}
+    .filters input{width:160px}
+  }
+</style>
+
+
+
+<script>
+  /* =========================================================================
+     home_sim_search.html Script (final, percent-based colgroup)
+     ========================================================================= */
+  (function(){
+    const OWNER     = {{ owner|tojson }};
+    const PRESELECT = {{ preselect_table|default('', true)|tojson }};   {# None → "" #}
+    const ALLOWED   = {{ allowed_tables|tojson }};
+  
+    // 좌측 목록/검색
+    const searchEl = document.getElementById('tbl-search');
+    const listEl   = document.getElementById('tbl-list');
+    const items    = Array.from(listEl.querySelectorAll('.tbl-item'));
+    function filterList(){
+      const q = (searchEl.value || '').trim().toLowerCase();
+      items.forEach(li=>{
+        const name = li.dataset.tbl.toLowerCase();
+        li.style.display = (!q || name.includes(q)) ? '' : 'none';
+      });
+    }
+    searchEl.addEventListener('input', filterList);
+  
+    // 우측 요소
+    const selTableEl = document.getElementById('sel-table');
+    const selDescEl  = document.getElementById('sel-desc');
+    const filtersWrap= document.getElementById('filters');
+    const pageSizeEl = document.getElementById('page-size');
+    const btnSearch  = document.getElementById('btn-search');
+  
+    const placeholder= document.getElementById('placeholder');
+    const metaEl     = document.getElementById('meta');
+    const tableWrap  = document.querySelector('.table-wrap');
+    const gridHead   = document.getElementById('grid-head');
+    const gridBody   = document.getElementById('grid-body');
+    const gridCols   = document.getElementById('grid-cols');
+    const pager      = document.getElementById('pager');
+    const pgPrev     = document.getElementById('pg-prev');
+    const pgNext     = document.getElementById('pg-next');
+    const pgInfo     = document.getElementById('pg-info');
+  
+    let currentTable = '';
+    let currentPage  = 1;
+  
+    const getCfg = (tbl) => ALLOWED.find(x => x.name === tbl);
+  
+    // 테이블별 필터 입력 UI
+    function renderFilterInputs(tbl){
+      filtersWrap.innerHTML = '';
+      const cfg = getCfg(tbl);
+      if(!cfg) return;
+      cfg.filters.forEach(f => {
+        const box = document.createElement('div');
+        box.className = 'f';
+        const label = document.createElement('label');
+        label.textContent = f;
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'f_' + f;
+        inp.placeholder = `${f} = …`;
+        // Enter 로 바로 검색
+        inp.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') btnSearch.click(); });
+        box.append(label, inp);
+        filtersWrap.appendChild(box);
+      });
+    }
+  
+    // 페이지 데이터 조회/렌더
+    async function fetchPage(page){
+      const qs = new URLSearchParams();
+      qs.set('owner', OWNER);
+      qs.set('table', currentTable);
+      qs.set('page', String(page));
+      qs.set('page_size', pageSizeEl.value);
+  
+      // 필터 값
+      const cfg = getCfg(currentTable);
+      if(cfg){
+        cfg.filters.forEach(f=>{
+          const v = (document.getElementById('f_'+f)?.value || '').trim();
+          if(v !== '') qs.set(f, v);
+        });
+      }
+  
+      // 로딩 UI
+      placeholder.style.display = '';
+      placeholder.textContent = '로딩 중…';
+      tableWrap.style.display = 'none';
+      pager.style.display = 'none';
+      metaEl.style.display = 'none';
+  
+      const r = await fetch('/api/sim/data?' + qs.toString(), { cache:'no-store' });
+      if(!r.ok){
+        placeholder.textContent = '로딩 실패: HTTP ' + r.status;
+        return;
+      }
+      const data = await r.json();
+  
+      // 메타
+      metaEl.style.display = '';
+      metaEl.textContent = `총 ${data.total.toLocaleString()}건 · 페이지 ${data.page} / ${data.pages}`;
+  
+      // 헤더
+      gridHead.innerHTML = '';
+      data.columns.forEach(c=>{
+        const th = document.createElement('th');
+        th.textContent = c;
+        gridHead.appendChild(th);
+      });
+  
+      // ✅ colgroup을 컬럼 수만큼 "균등 퍼센트"로 채움 (헤더 렌더 직후)
+      gridCols.innerHTML = '';
+      if (data.columns.length > 0) {
+        const pct = 100 / data.columns.length;
+        for (let i = 0; i < data.columns.length; i++) {
+          const col = document.createElement('col');
+          col.style.width = pct + '%';
+          gridCols.appendChild(col);
+        }
+      }
+  
+      // 바디
+      gridBody.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      data.rows.forEach(row=>{
+        const tr = document.createElement('tr');
+        data.columns.forEach(c=>{
+          const td = document.createElement('td');
+          const v = row[c];
+          td.textContent = (v === null || v === undefined) ? '' : String(v);
+          tr.appendChild(td);
+        });
+        frag.appendChild(tr);
+      });
+      gridBody.appendChild(frag);
+  
+      // 표시/페이지 상태
+      placeholder.style.display = 'none';
+      tableWrap.style.display = '';
+      pager.style.display = (data.pages > 1) ? '' : 'none';
+      currentPage = data.page;
+      pgInfo.textContent = `${data.page} / ${data.pages}`;
+      pgPrev.disabled = (data.page <= 1);
+      pgNext.disabled = (data.page >= data.pages);
+    }
+  
+    // 좌측 리스트 클릭
+    listEl.addEventListener('click', (e)=>{
+      const li = e.target.closest('.tbl-item');
+      if(!li) return;
+      items.forEach(x=>x.classList.remove('active'));
+      li.classList.add('active');
+  
+      currentTable = li.dataset.tbl;
+      const cfg = getCfg(currentTable);
+      selTableEl.textContent = currentTable;
+      selDescEl.textContent  = cfg?.label || '';
+      renderFilterInputs(currentTable);
+      currentPage = 1;
+      fetchPage(1);
+    });
+  
+    // 검색/페이지크기
+    btnSearch.addEventListener('click', ()=>{ currentPage = 1; fetchPage(1); });
+    pageSizeEl.addEventListener('change', ()=>{ currentPage = 1; fetchPage(1); });
+  
+    // 페이지 이동
+    pgPrev.addEventListener('click', ()=>{ if(currentPage>1) fetchPage(currentPage-1); });
+    pgNext.addEventListener('click', ()=>{ fetchPage(currentPage+1); });
+  
+    // 최초 자동 선택
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const target = PRESELECT || (ALLOWED[0]?.name || '');
+      if(!target) return;
+      const li = document.querySelector(`.tbl-item[data-tbl="${CSS.escape(target)}"]`);
+      if(li){
+        li.classList.add('active');
+        currentTable = target;
+        const cfg = getCfg(currentTable);
+        selTableEl.textContent = currentTable;
+        selDescEl.textContent  = cfg?.label || '';
+        renderFilterInputs(currentTable);
+        fetchPage(1);
+        li.scrollIntoView({block:'nearest'});
+      }
+    });
+  })();
+  </script>
+   
 {% endblock %}

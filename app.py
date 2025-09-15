@@ -1,15 +1,22 @@
 import pyodbc, os, subprocess, pathlib, json, hashlib, re
+import math, decimal, datetime as _dt
 import pandas as pd
 import numpy as np
+import requests
+import socket
 import pytz
+import time
 
 from pprint import pprint
 from decimal import Decimal
 from flask_cors import CORS
+from contextlib import closing
 from dotenv import load_dotenv
+from typing import List, Dict, Any
 from collections import defaultdict
 from flask_compress import Compress
 from windows import set_dpi_awareness
+from requests import exceptions as rex
 from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -30,8 +37,6 @@ ADMIN_ID_RE = re.compile(r'^(?=(?:.*[A-Za-z]){5,})[A-Za-z0-9]+$')   # 영문 5�
 KOREAN_NAME_RE = re.compile(r'^[가-힣]{2,50}$')                      # 한글 2~50자
 CORS(app)
 Compress(app)
-
-
 
 
 
@@ -122,8 +127,6 @@ def _strip_compression_suffix_from_etag(response):
 app.after_request_funcs.setdefault(None, [])
 app.after_request_funcs[None].insert(0, _strip_compression_suffix_from_etag)
 
-
-
 # ========================================================= [ VISUM 자동화 코드 실행 ]
 
 def run_visum_script():
@@ -196,10 +199,129 @@ def get_connection():
             f"PWD={DBPWD}"
         )
 
+# ========================================================= [ 서버 상태정보 조회 유틸 ]
 
+def _check_db_alive():
+    t0 = time.time()
+    try:
+        with get_connection() as cn:
+            with cn.cursor() as cur:
+                # Tibero는 DUAL 존재; 단순 응답 확인
+                cur.execute("SELECT 1 FROM DUAL")
+                cur.fetchone()
+        return True, round((time.time() - t0) * 1000)  # ms
+    except Exception as e:
+        return f"{type(e).__name__}: {e}", None
 
+def _check_http_alive(url, timeout=1.5):
+    t0 = time.time()
+    try:
+        # 단순 루트 GET. 서비스에 /health 있으면 그걸로 바꿔도 좋음
+        r = requests.get(url, timeout=timeout)
+        ok = (200 <= r.status_code < 400)
+        return ok, round((time.time() - t0) * 1000), r.status_code
+    except Exception as e:
+        return f"{type(e).__name__}: {e}", None, None
 
+def _check_tcp_alive(host, port, timeout=1.0):
+    # HTTP가 아닐 수도 있으면 TCP 포트만 스캔 (백업 용도)
+    t0 = time.time()
+    try:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+            s.settimeout(timeout)
+            s.connect((host, int(port)))
+        return True, round((time.time() - t0) * 1000)
+    except Exception as e:
+        return f"{type(e).__name__}: {e}", None
 
+def _service_health_snapshot():
+    # 1) DB
+    db_status, db_ms = _check_db_alive()
+    db_ok = (db_status is True)
+
+    # 2) 딥러닝 5102
+    dl_ok, dl_ms, dl_code, dl_reason, dl_hint, dl_detail = _check_http_alive("http://127.0.0.1:5102/")
+    if not dl_ok:
+        tcp_ok, tcp_ms = _check_tcp_alive("127.0.0.1", 5102)
+        if tcp_ok:
+            dl_ok, dl_ms, dl_reason, dl_hint, dl_detail = True, tcp_ms, None, None, None
+
+    # 3) 프론트 5713
+    fe_ok, fe_ms, fe_code, fe_reason, fe_hint, fe_detail = _check_http_alive("http://127.0.0.1:5713/")
+    if not fe_ok:
+        tcp_ok, tcp_ms = _check_tcp_alive("127.0.0.1", 5713)
+        if tcp_ok:
+            fe_ok, fe_ms, fe_reason, fe_hint, fe_detail = True, tcp_ms, None, None, None
+
+    # 4) 백엔드 5101
+    be_ok, be_ms, be_code, be_reason, be_hint, be_detail = _check_http_alive("http://127.0.0.1:5101/")
+    if not be_ok:
+        tcp_ok, tcp_ms = _check_tcp_alive("127.0.0.1", 5101)
+        if tcp_ok:
+            be_ok, be_ms, be_reason, be_hint, be_detail = True, tcp_ms, None, None, None
+
+    return {
+        "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S KST"),
+        "items": {
+            "db": {
+                "ok": db_ok, "ms": db_ms,
+                "hint": None if db_ok else "DB 연결 실패",
+                "reason": None if db_ok else "DB_ERROR",
+                "detail": None if db_ok else str(db_status)
+            },
+            "dl": {
+                "ok": dl_ok, "ms": dl_ms,
+                "hint": dl_hint, "reason": dl_reason, "detail": dl_detail
+            },
+            "frontend": {
+                "ok": fe_ok, "ms": fe_ms,
+                "hint": fe_hint, "reason": fe_reason, "detail": fe_detail
+            },
+            "backend": {
+                "ok": be_ok, "ms": be_ms,
+                "hint": be_hint, "reason": be_reason, "detail": be_detail
+            },
+        }
+    }
+
+def _simplify_err(e, host, port):
+    """requests 예외를 짧은 사유/힌트로 축약"""
+    if isinstance(e, rex.ConnectTimeout):
+        return "TIMEOUT", f"{host}:{port} 응답 없음"
+    if isinstance(e, rex.ConnectionError):
+        return "CONN_REFUSED", f"{host}:{port} 연결 실패(꺼져있거나 포트 닫힘)"
+    if isinstance(e, rex.ReadTimeout):
+        return "TIMEOUT", f"{host}:{port} 응답 지연"
+    if isinstance(e, rex.SSLError):
+        return "SSL_ERROR", "SSL 설정 문제"
+    if isinstance(e, rex.InvalidURL):
+        return "BAD_URL", "URL 형식 오류"
+    return "UNKNOWN", str(e)
+
+def _check_http_alive(url, timeout=1.5):
+    """
+    return: (ok, ms, http_code, reason, hint, full_detail)
+      - ok: bool
+      - http_code: int | None
+      - reason: 짧은 사유코드 (TIMEOUT / CONN_REFUSED / HTTP_5XX ...)
+      - hint: 사용자에게 보여줄 짧은 메시지
+      - full_detail: 원문(툴팁/로그용)
+    """
+    t0 = time.time()
+    try:
+        r = requests.get(url, timeout=timeout)
+        ok = (200 <= r.status_code < 400)
+        ms = round((time.time() - t0) * 1000)
+        if ok:
+            return True, ms, r.status_code, None, None, None
+        # HTTP 오류
+        reason = f"HTTP_{r.status_code}"
+        hint = f"HTTP {r.status_code}"
+        return False, ms, r.status_code, reason, hint, f"HTTP {r.status_code} for {url}"
+    except Exception as e:
+        ms = None
+        reason, hint = _simplify_err(e, "127.0.0.1", url.split(":")[-1].strip("/"))
+        return False, ms, None, reason, hint, repr(e)
 
 
 
@@ -395,35 +517,536 @@ def signup():
 def home_dashboard():
     if not require_login():
         return redirect(url_for("login"))
+    snap = _service_health_snapshot()
     return render_template(
         "home_dashboard.html",
         name=session.get("admin_name"),
         active_page="dashboard",
-        last_checked="2025-09-05 02:52 KST"
+        last_checked=snap["last_checked"],
+        health_items=snap["items"],   # ← 템플릿 초기화에 사용
+        FLASK_ENV=FLASK_ENV
     )
 
 #  [ DB 테이블 스페이스 조회 ]  =========================================================
+
+def _fetch_table_columns(owner: str, table: str):
+    """
+    특정 테이블의 컬럼 목록을 반환.
+    - 컬럼명, 데이터 타입(정밀도/길이 포함), NULL 여부, COMMENT
+    return: List[dict]
+    """
+    owner = (owner or "TOMMS").upper()
+    table = (table or "").upper()
+    if not table:
+        return []
+
+    sql = """
+    SELECT
+        c.COLUMN_ID,
+        c.COLUMN_NAME,
+        CASE
+            WHEN c.DATA_TYPE IN ('NUMBER','DECIMAL','NUMERIC') THEN
+                CASE
+                    WHEN c.DATA_PRECISION IS NOT NULL AND c.DATA_SCALE IS NOT NULL
+                        THEN c.DATA_TYPE || '(' || c.DATA_PRECISION || ',' || c.DATA_SCALE || ')'
+                    WHEN c.DATA_PRECISION IS NOT NULL AND c.DATA_SCALE IS NULL
+                        THEN c.DATA_TYPE || '(' || c.DATA_PRECISION || ')'
+                    ELSE c.DATA_TYPE
+                END
+            WHEN c.DATA_TYPE IN ('VARCHAR2','NVARCHAR2','CHAR','NCHAR') THEN
+                c.DATA_TYPE || '(' || NVL(c.CHAR_LENGTH, c.DATA_LENGTH) || ')'
+            ELSE
+                c.DATA_TYPE
+        END AS DATA_TYPE_FULL,
+        c.NULLABLE,
+        cc.COMMENTS
+    FROM ALL_TAB_COLUMNS c
+    LEFT JOIN ALL_COL_COMMENTS cc
+      ON cc.OWNER = c.OWNER
+     AND cc.TABLE_NAME = c.TABLE_NAME
+     AND cc.COLUMN_NAME = c.COLUMN_NAME
+    WHERE c.OWNER = ?
+      AND c.TABLE_NAME = ?
+    ORDER BY c.COLUMN_ID
+    """
+
+    rows = []
+    conn = cur = None
+    try:
+        conn = get_connection()
+
+        # ⬇️ 이 함수 내부에서만 문자 인코딩을 안전하게 설정
+        try:
+            import pyodbc
+            conn.setdecoding(pyodbc.SQL_CHAR,  encoding='utf-8')
+            conn.setdecoding(pyodbc.SQL_WCHAR, encoding='utf-16le')  # Windows ODBC wide-char
+            conn.setencoding('utf-8')  # 파라미터 전송 인코딩
+        except Exception:
+            # 드라이버/플랫폼에 따라 setdecoding 미지원일 수도 있으니 무시
+            pass
+
+        cur = conn.cursor()
+        cur.execute(sql, (owner, table))
+
+        # 문자열 정규화 유틸 (bytes -> str, None -> "")
+        def _norm(s):
+            if s is None:
+                return ""
+            if isinstance(s, bytes):
+                try:
+                    return s.decode('utf-8')
+                except Exception:
+                    # 드물게 CP949(EUC-KR) 등으로 들어오는 경우 대비
+                    return s.decode('cp949', errors='replace')
+            return str(s)
+
+        for col_id, col_name, dtype_full, nullable, comment in cur.fetchall():
+            rows.append({
+                "column_id": int(col_id) if col_id is not None else None,
+                "column_name": _norm(col_name),
+                "data_type": _norm(dtype_full),
+                "nullable": (nullable == 'Y'),
+                "comment": _norm(comment)
+            })
+    finally:
+        try:
+            if cur: cur.close()
+        except:
+            ...
+        try:
+            if conn: conn.close()
+        except:
+            ...
+    return rows
+
+def _fetch_tomms_tables(owner: str = "TOMMS"):
+    """
+    지정한 스키마(owner)의 테이블명을 알파벳 순으로 반환.
+    return: List[str]
+    """
+    owner = (owner or "TOMMS").upper()
+    rows = []
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT TABLE_NAME
+            FROM ALL_TABLES
+            WHERE OWNER = ?
+            ORDER BY TABLE_NAME
+            """,
+            (owner,)
+        )
+        rows = [r[0] for r in cur.fetchall()]
+    finally:
+        try:
+            if cur: cur.close()
+        except: ...
+        try:
+            if conn: conn.close()
+        except: ...
+    return rows
+
+@app.get("/api/db/columns")
+def api_db_columns():
+    if not require_login():
+        return jsonify({"error": "unauthorized"}), 401
+
+    owner = (request.args.get("owner") or "TOMMS").upper()
+    table = (request.args.get("table") or "").upper()
+    if not table:
+        return jsonify({"error": "table required"}), 400
+
+    columns = _fetch_table_columns(owner, table)  # ← 여기서 함수가 실제로 호출됨
+    return jsonify({
+        "owner": owner,
+        "table": table,
+        "count": len(columns),
+        "columns": columns
+    }), 200
 
 @app.route("/home/db-space")
 def home_db_space():
     if not require_login():
         return redirect(url_for("login"))
+
+    owner = (request.args.get("owner") or "TOMMS").upper()
+    table_names = _fetch_tomms_tables(owner)
+
+    # 선택(프리셀렉트) 테이블: 쿼리로 들어오면 우선, 없으면 None
+    preselect = (request.args.get("table") or "").upper() or None
+    if preselect and preselect not in table_names:
+        preselect = None  # 안전장치: 목록에 없는 이름이면 무시
+
+    fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S KST")
+
     return render_template(
         "home_db_space.html",
         name=session.get("admin_name"),
-        active_page="dbspace"
+        active_page="dbspace",
+        FLASK_ENV=FLASK_ENV,          # 템플릿의 환경 뱃지 표시에 사용
+        owner=owner,                  # 오른쪽 패널 “선택된 owner” 표시에 사용
+        table_names=table_names,      # 왼쪽 리스트
+        table_count=len(table_names), # 요약 카운트
+        fetched_at=fetched_at,        # 상단 갱신 시간
+        preselect_table=preselect     # JS에서 자동 로딩에 사용(선택)
     )
 
 #  [ 시뮬레이션 교통 분석 데이터 검색 ]  =========================================================
+
+# 1) 허용 테이블 + 필터 + 기본 정렬
+ALLOWED_SIM_TABLES = {
+    "TFA_VTTM_HOUR_RESULT": {
+        "label": "시간대별 구간 분석 결과",
+        "filters": ["STAT_HOUR", "VTTM_ID"],
+        "order":   ["STAT_HOUR", "VTTM_ID"]
+    },
+    "TFA_NODE_DIR_15MIN_RESULT": {
+        "label": "15분별 교차로 방향별 분석 결과",
+        "filters": ["STAT_HOUR", "TIMEINT", "NODE_ID", "APPR_ID", "DIRECTION"],
+        "order":   ["STAT_HOUR", "TIMEINT", "NODE_ID", "APPR_ID", "DIRECTION"]
+    },
+    "TFA_NODE_15MIN_RESULT": {
+        "label": "15분별 교차로 분석 결과",
+        "filters": ["STAT_HOUR", "TIMEINT", "NODE_ID"],
+        "order":   ["STAT_HOUR", "TIMEINT", "NODE_ID"]
+    },
+    "TFA_DISTRICT_HOUR_RESULT": {
+        "label": "시간대별 권역 분석 결과",
+        "filters": ["DISTRICT_ID", "STAT_HOUR"],
+        "order":   ["STAT_HOUR", "DISTRICT_ID"]
+    },
+    "TFA_DC_HOUR_RESULT": {
+        "label": "시간대별 지점 분석 결과",
+        "filters": ["STAT_HOUR", "DC_ID"],
+        "order":   ["STAT_HOUR", "DC_ID"]
+    },
+    "TDA_ZONE_OD_RESULT": {
+        "label": "존별 OD통행량 분석 결과",
+        "filters": ["FROM_ZONE_ID"],
+        "order":   ["FROM_ZONE_ID"]
+    },
+    "TDA_ROAD_VOL_HOUR_RESULT": {
+        "label": "시간대별 도로 분석 결과",
+        "filters": ["STAT_HOUR", "ROAD_ID"],
+        "order":   ["STAT_HOUR", "ROAD_ID"]
+    },
+    "TDA_LINK_HOUR_RESULT": {
+        "label": "시간대별 링크 분석 결과",
+        "filters": ["STAT_HOUR", "LINK_ID"],
+        "order":   ["STAT_HOUR", "LINK_ID"]
+    },
+    "TDA_LINK_DAY_RESULT": {
+        "label": "전일 링크 분석 결과",
+        "filters": ["STAT_DAY", "LINK_ID"],
+        "order":   ["STAT_DAY", "LINK_ID"]
+    },
+}
+
+def _build_where_and_params(tbl: str, args: dict):
+    """허용된 필터만 WHERE로 빌드"""
+    cfg = ALLOWED_SIM_TABLES[tbl]
+    where = []
+    params = []
+    for col in cfg["filters"]:
+        val = args.get(col)
+        if val is None or str(val).strip() == "":
+            continue
+        where.append(f"t.{col} = ?")
+        params.append(val)
+    return (" WHERE " + " AND ".join(where)) if where else "", params
+
+def _default_order_sql(tbl: str) -> str:
+    cols = ALLOWED_SIM_TABLES[tbl].get("order") or []
+    if cols:
+        joined = ", ".join([f"t.{c}" for c in cols])
+        return f" ORDER BY {joined}"
+    # 최소 보장(ROW_NUMBER 필요): 칼럼이 없으면 1=1 기준 (정렬 영향 최소)
+    return " ORDER BY 1"
+
+def _rows_to_dicts(cur, include_rn=False):
+    names = [d[0] for d in cur.description]
+    out = []
+    for rec in cur.fetchall():
+        row = {}
+        for i, name in enumerate(names):
+            if not include_rn and name.upper() == "RN":
+                continue
+            v = rec[i]
+            # JSON 직렬화 안전 변환
+            if hasattr(v, "isoformat"):
+                v = v.isoformat(sep=" ")  # datetime/date
+            elif v is None:
+                v = None
+            else:
+                try:
+                    import decimal
+                    if isinstance(v, decimal.Decimal):
+                        v = float(v)
+                except Exception:
+                    pass
+            row[name] = v
+        out.append(row)
+    # RN 제외 컬럼 목록 반환
+    cols = [n for n in names if (include_rn or n.upper() != "RN")]
+    return cols, out
+
+def _fetch_sim_data(owner: str, table: str, qargs: dict):
+    """
+    - owner: 스키마 (TOMMS)
+    - table: 허용 테이블
+    - qargs: request.args (필터, page, page_size)
+    return: {columns:[], rows:[], total:int, page:int, page_size:int, pages:int}
+    """
+    owner = (owner or "TOMMS").upper()
+    table = table.upper()
+    if table not in ALLOWED_SIM_TABLES:
+        return {"error": "table not allowed"}
+
+    page = max(1, int(qargs.get("page", 1)))
+    page_size = max(1, min(200, int(qargs.get("page_size", 50))))  # 상한 보호
+    start = (page - 1) * page_size + 1
+    end   = page * page_size
+
+    where_sql, params = _build_where_and_params(table, qargs)
+    order_sql = _default_order_sql(table)
+
+    base = f"{owner}.{table}"
+
+    # 총 건수
+    sql_count = f"SELECT COUNT(*) FROM {base} t{where_sql}"
+    # 페이징: ROW_NUMBER() OVER(ORDER BY …)
+    sql_page = f"""
+    SELECT * FROM (
+      SELECT t.*, ROW_NUMBER() OVER ({order_sql}) AS RN
+      FROM {base} t
+      {where_sql}
+    )
+    WHERE RN BETWEEN ? AND ?
+    """
+
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # count
+        cur.execute(sql_count, params)
+        total = int(cur.fetchone()[0])
+
+        # page
+        cur.execute(sql_page, params + [start, end])
+        columns, rows = _rows_to_dicts(cur, include_rn=False)
+
+        pages = (total + page_size - 1) // page_size
+        return {
+            "columns": columns,
+            "rows": rows,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": pages
+        }
+    finally:
+        try:
+            if cur: cur.close()
+        except: ...
+        try:
+            if conn: conn.close()
+        except: ...
+
+@app.get("/api/sim/data")
+def api_sim_data():
+    if not require_login():
+        return jsonify({"error": "unauthorized"}), 401
+
+    owner = (request.args.get("owner") or "TOMMS").upper()
+    table = (request.args.get("table") or "").upper()
+    if table not in ALLOWED_SIM_TABLES:
+        return jsonify({"error": "table not allowed", "allowed": list(ALLOWED_SIM_TABLES.keys())}), 400
+
+    data = _fetch_sim_data(owner, table, request.args)
+    if "error" in data:
+        return jsonify(data), 400
+
+    # 한글 컬럼/값이 있어도 깨지지 않도록
+    try:
+        app.json.ensure_ascii = False
+    except Exception:
+        app.config["JSON_AS_ASCII"] = False
+
+    return jsonify({
+        "owner": owner,
+        "table": table,
+        "meta": {
+            "label": ALLOWED_SIM_TABLES[table]["label"],
+            "filters": ALLOWED_SIM_TABLES[table]["filters"]
+        },
+        **data
+    }), 200
 
 @app.route("/home/sim-search")
 def home_sim_search():
     if not require_login():
         return redirect(url_for("login"))
+
+    # 좌측 목록 표시용
+    allowed_list = [
+        {"name": k, "label": v["label"], "filters": v["filters"]}
+        for k, v in ALLOWED_SIM_TABLES.items()
+    ]
+
+    preselect = (request.args.get("table") or "").upper() or None
+    if preselect and preselect not in ALLOWED_SIM_TABLES:
+        preselect = None
+
     return render_template(
         "home_sim_search.html",
         name=session.get("admin_name"),
-        active_page="simsearch"
+        active_page="simsearch",
+        FLASK_ENV=FLASK_ENV,
+        owner="TOMMS",
+        allowed_tables=allowed_list,
+        preselect_table=preselect
+    )
+
+#  [ 시뮬레이션 연계조건 및 운영정보 데이터 검색 ]  =========================================================
+
+INFO_ALLOWED_TABLES = [
+    # name, label, filters: [{key, op}]  op: 'eq' | 'like'
+    {"name": "TFA_NODE_INFO",      "label": "교차로 정보",           "filters": [{"key": "CROSS_ID", "op": "eq"}, {"key": "DISTRICT_ID", "op": "eq"}]},
+    {"name": "TFA_NODE_DIR_INFO",  "label": "교차로 방향별 정보",     "filters": [{"key": "NODE_ID", "op": "eq"}, {"key": "APPR_ID", "op": "eq"}]},
+    {"name": "TDA_ZONE_INFO",      "label": "교통존 정보",           "filters": [{"key": "ZONE_ID", "op": "eq"}, {"key": "ZONE_NAME", "op": "like"}]},
+    {"name": "TDA_ROAD_VOL_INFO",  "label": "대로별 정보",           "filters": [{"key": "ROAD_ID", "op": "eq"}, {"key": "ROAD_NAME", "op": "like"}]},
+    {"name": "TDA_LINK_INFO",      "label": "링크별 정보",           "filters": [{"key": "DISTRICT_ID", "op": "eq"}, {"key": "SA_NO", "op": "eq"}, {"key": "LINK_ID", "op": "eq"}, {"key": "ROAD_NAME", "op": "like"}]},
+    {"name": "TFA_VTTM_DC_INFO",   "label": "구간·지점 매칭정보",     "filters": []},   # 필터 없음
+    {"name": "TFA_OPTI_SIG_INFO",  "label": "최적화 신호 조건정보",   "filters": []},   # (요청대로 지정 없음)
+]
+def _info_allowed_cfg(table: str):
+    t = (table or "").upper()
+    for cfg in INFO_ALLOWED_TABLES:
+        if cfg["name"] == t:
+            return cfg
+    return None
+
+def _info_where_and_params(cfg, args):
+    """화이트리스트 기반 WHERE 절 생성"""
+    where, params = [], []
+    for f in cfg.get("filters", []):
+        key = f["key"]
+        op  = f.get("op", "eq")
+        val = args.get(key)
+        if val is None or str(val).strip() == "":
+            continue
+        if op == "like":
+            where.append(f"{key} LIKE ?")
+            params.append(f"%{val}%")
+        else:
+            where.append(f"{key} = ?")
+            params.append(val)
+    return (" WHERE " + " AND ".join(where)) if where else "", params
+
+def _jsonable(v):
+    if isinstance(v, decimal.Decimal):
+        return float(v)
+    if isinstance(v, (_dt.datetime, _dt.date, _dt.time)):
+        return v.isoformat()
+    return v
+
+@app.get("/api/sim/info-data")
+def api_sim_info_data():
+    if not require_login():
+        return jsonify({"error": "unauthorized"}), 401
+
+    owner = (request.args.get("owner") or "TOMMS").upper()
+    table = (request.args.get("table") or "").upper()
+    page = max(1, int(request.args.get("page", 1)))
+    page_size = min(500, max(1, int(request.args.get("page_size", 50))))
+
+    cfg = _info_allowed_cfg(table)
+    if not cfg:
+        return jsonify({"error": "table not allowed"}), 400
+
+    where_sql, params = _info_where_and_params(cfg, request.args)
+
+    # Tibero 6/Oracle12c 호환 OFFSET/FETCH 사용
+    offset = (page - 1) * page_size
+
+    conn = cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # 1) 총 건수
+        sql_cnt = f"SELECT COUNT(1) FROM {owner}.{table}{where_sql}"
+        cur.execute(sql_cnt, params)
+        total = int(cur.fetchone()[0])
+
+        # 2) 데이터 — 우선 OFFSET/FETCH에 '정수 리터럴'로 인라인
+        sql_data = (
+            f"SELECT * FROM {owner}.{table}{where_sql} "
+            f"ORDER BY 1 ASC OFFSET {offset} ROWS FETCH NEXT {page_size} ROWS ONLY"
+        )
+        try:
+            cur.execute(sql_data, params)
+        except pyodbc.ProgrammingError:
+            # 3) 폴백: ROW_NUMBER() 페이징 (OFFSET/FETCH 미지원 드라이버용)
+            start_row = offset + 1
+            end_row   = offset + page_size
+            sql_data = f"""
+                SELECT * FROM (
+                    SELECT t.*, ROW_NUMBER() OVER (ORDER BY 1 ASC) AS rn
+                    FROM {owner}.{table} t
+                    {where_sql}
+                )
+                WHERE rn BETWEEN {start_row} AND {end_row}
+            """
+            cur.execute(sql_data, params)
+
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description] if cur.description else []
+        out_rows = [{cols[i]: _jsonable(r[i]) for i in range(len(cols))} for r in rows]
+        pages = max(1, math.ceil(total / page_size))
+
+        return jsonify({
+            "owner": owner, "table": table,
+            "total": total, "page": page, "pages": pages, "page_size": page_size,
+            "columns": cols, "rows": out_rows
+        }), 200
+
+    finally:
+        try:
+            if cur: cur.close()
+        except: ...
+        try:
+            if conn: conn.close()
+        except: ...
+
+@app.route("/home_sim_info")
+def home_sim_info_search():
+    if not require_login():
+        return redirect(url_for("login"))
+
+    owner = (request.args.get("owner") or "TOMMS").upper()
+    preselect = (request.args.get("table") or "").upper() or None
+    allowed_for_template = [
+        {"name": t["name"], "label": t["label"], "filters": [f["key"] for f in t["filters"]]}
+        for t in INFO_ALLOWED_TABLES
+    ]
+    # 존재하지 않는 프리셀렉트면 무시
+    if preselect and preselect not in {t["name"] for t in INFO_ALLOWED_TABLES}:
+        preselect = None
+
+    return render_template(
+        "home_sim_info.html",
+        name=session.get("admin_name"),
+        active_page="signalopt",
+        FLASK_ENV=FLASK_ENV,
+        owner=owner,
+        preselect_table=preselect,
+        allowed_tables=allowed_for_template
     )
 
 #  [ 교차로별 신호최적화 ]  =========================================================
@@ -438,10 +1061,109 @@ def home_signal_opt():
         active_page="signalopt"
     )
 
+@app.route("/api/health")
+def api_health():
+    # DB
+    db_status, db_ms = _check_db_alive()
+    db_ok = (db_status is True)
 
+    # DL
+    dl_ok, dl_ms, dl_code, dl_reason, dl_hint, dl_detail = _check_http_alive("http://127.0.0.1:5102/")
+    if not dl_ok:
+        # TCP 보조 확인
+        tcp, tcp_ms = _check_tcp_alive("127.0.0.1", 5102)
+        if tcp is True:
+            dl_ok, dl_ms, dl_reason, dl_hint = True, tcp_ms, None, None
 
+    # FE
+    fe_ok, fe_ms, fe_code, fe_reason, fe_hint, fe_detail = _check_http_alive("http://127.0.0.1:5713/")
+    if not fe_ok:
+        tcp, tcp_ms = _check_tcp_alive("127.0.0.1", 5713)
+        if tcp is True:
+            fe_ok, fe_ms, fe_reason, fe_hint = True, tcp_ms, None, None
 
+    # BE
+    be_ok, be_ms, be_code, be_reason, be_hint, be_detail = _check_http_alive("http://127.0.0.1:5101/")
+    if not be_ok:
+        tcp, tcp_ms = _check_tcp_alive("127.0.0.1", 5101)
+        if tcp is True:
+            be_ok, be_ms, be_reason, be_hint = True, tcp_ms, None, None
 
+    health = {
+        "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S KST"),
+        "env": FLASK_ENV.upper(),
+        "items": [
+            {
+              "key": "db", "label": "데이터베이스 연결 상태 확인",
+              "ok": db_ok, "latency_ms": db_ms,
+              "reason": None if db_ok else "DB_ERROR",
+              "hint": None if db_ok else "DB 연결 실패",
+              "detail": None if db_ok else str(db_status)
+            },
+            {
+              "key": "dl", "label": "딥러닝 서버 실행 상태 확인",
+              "ok": dl_ok, "latency_ms": dl_ms, "http": dl_code,
+              "reason": dl_reason, "hint": dl_hint, "detail": dl_detail
+            },
+            {
+              "key": "frontend", "label": "프론트서버 실행 상태 확인",
+              "ok": fe_ok, "latency_ms": fe_ms, "http": fe_code,
+              "reason": fe_reason, "hint": fe_hint, "detail": fe_detail
+            },
+            {
+              "key": "backend", "label": "백엔드 서버 실행 상태 확인",
+              "ok": be_ok, "latency_ms": be_ms, "http": be_code,
+              "reason": be_reason, "hint": be_hint, "detail": be_detail
+            },
+        ],
+        "overall_ok": all([db_ok, dl_ok, fe_ok, be_ok])
+    }
+    return jsonify(health), 200
+
+    # 1) DB 연결 확인 (get_connection 사용)
+    db_status, db_ms = _check_db_alive()
+    db_ok = (db_status is True)
+
+    # 2) 딥러닝 서버 (localhost:5102)
+    dl_status, dl_ms, dl_code = _check_http_alive("http://127.0.0.1:5102/")
+    dl_ok = (dl_status is True)
+    if dl_ok is not True:
+        # HTTP 실패면 TCP로 재확인 (선택)
+        tcp, tcp_ms = _check_tcp_alive("127.0.0.1", 5102)
+        if tcp is True:
+            dl_status, dl_ms = True, tcp_ms
+            dl_ok = True
+
+    # 3) 프론트 서버 (localhost:5713)
+    fe_status, fe_ms, fe_code = _check_http_alive("http://127.0.0.1:5713/")
+    fe_ok = (fe_status is True)
+    if fe_ok is not True:
+        tcp, tcp_ms = _check_tcp_alive("127.0.0.1", 5713)
+        if tcp is True:
+            fe_status, fe_ms = True, tcp_ms
+            fe_ok = True
+
+    # 4) 백엔드 서버 (localhost:5101)
+    be_status, be_ms, be_code = _check_http_alive("http://127.0.0.1:5101/")
+    be_ok = (be_status is True)
+    if be_ok is not True:
+        tcp, tcp_ms = _check_tcp_alive("127.0.0.1", 5101)
+        if tcp is True:
+            be_status, be_ms = True, tcp_ms
+            be_ok = True
+
+    health = {
+        "last_checked": datetime.now().strftime("%Y-%m-%d %H:%M:%S KST"),
+        "env": FLASK_ENV.upper(),
+        "items": [
+            {"key": "db",       "label": "데이터베이스 연결 상태 확인", "ok": db_ok, "latency_ms": db_ms, "detail": None if db_ok else str(db_status)},
+            {"key": "dl",       "label": "딥러닝 서버 실행 상태 확인",   "ok": dl_ok, "latency_ms": dl_ms, "http": dl_code, "detail": None if dl_ok else str(dl_status)},
+            {"key": "frontend", "label": "프론트서버 실행 상태 확인",   "ok": fe_ok, "latency_ms": fe_ms, "http": fe_code, "detail": None if fe_ok else str(fe_status)},
+            {"key": "backend",  "label": "백엔드 서버 실행 상태 확인",   "ok": be_ok, "latency_ms": be_ms, "http": be_code, "detail": None if be_ok else str(be_status)},
+        ],
+        "overall_ok": all([db_ok, dl_ok, fe_ok, be_ok])
+    }
+    return jsonify(health), 200
 
 
 
