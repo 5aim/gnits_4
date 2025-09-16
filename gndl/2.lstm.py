@@ -202,7 +202,7 @@ class TrafficLSTMTrainer:
             normalized[i] = seq_normalized.reshape(sequences[i].shape)
         return (sequences - self.feature_mean) / self.feature_std
     
-    def train(self, epochs=100, batch_size=32, learning_rate=0.001):
+    def train(self, epochs=20, batch_size=32, learning_rate=0.001):
         """Train MultiNodeLSTM model"""
         print(f"🚀 Starting MultiNodeLSTM training for {epochs} epochs...")
         print(f"   Batch size: {batch_size}")
@@ -334,7 +334,7 @@ class TrafficLSTMTrainer:
         """Save trained model with metrics"""
         save_dict = {
             'model_state_dict': self.model.state_dict(),
-            'scaler': self.scaler,
+            # 'scaler': self.scaler,
             'metadata': self.metadata,
             'target_cross_ids': self.target_cross_ids,
             'model_config': {
@@ -343,7 +343,9 @@ class TrafficLSTMTrainer:
                 'hidden_dim': self.model.hidden_dim,
                 'lstm_layers': self.model.lstm_layers,
                 'num_directions': self.model.num_directions
-            }
+            },
+            'feature_mean': self.feature_mean,
+            'feature_std': self.feature_std,
         }
         
         # Add best metrics if available
@@ -475,7 +477,7 @@ def main():
         # Train model
         start_time = time.time()
         train_losses, val_losses = trainer.train(
-            epochs=100,  # More epochs since using full data
+            epochs=20,  # More epochs since using full data
             batch_size=32,
             learning_rate=0.001
         )

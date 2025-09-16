@@ -5,7 +5,7 @@
                 {
                     "avg_delay": 21.7,
                     "avg_speed": 20.0,
-                    "district_name": "교동",
+                    "district_name": "교동지구",
                     "district_no": 1,
                     "link_vertex": [
                         {
@@ -1395,7 +1395,7 @@
                 {
                     "avg_delay": 19.8,
                     "avg_speed": 21.4,
-                    "district_name": "송정",
+                    "district_name": "송정지구",
                     "district_no": 2,
                     "link_vertex": [
                         {
@@ -2800,7 +2800,7 @@
                 {
                     "avg_delay": 24.9,
                     "avg_speed": 18.8,
-                    "district_name": "도심",
+                    "district_name": "중심지구",
                     "district_no": 3,
                     "link_vertex": [
                         {
@@ -6605,7 +6605,7 @@
                 {
                     "avg_delay": 17.5,
                     "avg_speed": 24.4,
-                    "district_name": "경포",
+                    "district_name": "경포지구",
                     "district_no": 4,
                     "link_vertex": [
                         {

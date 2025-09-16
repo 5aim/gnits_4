@@ -924,6 +924,7 @@ INFO_ALLOWED_TABLES = [
     {"name": "TFA_VTTM_DC_INFO",   "label": "구간·지점 매칭정보",     "filters": []},   # 필터 없음
     {"name": "TFA_OPTI_SIG_INFO",  "label": "최적화 신호 조건정보",   "filters": []},   # (요청대로 지정 없음)
 ]
+
 def _info_allowed_cfg(table: str):
     t = (table or "").upper()
     for cfg in INFO_ALLOWED_TABLES:
@@ -1234,17 +1235,17 @@ def visum_hourly_vc():
         etag_val = make_etag(rule_date, hours_filter, total_rows)
         current_etag = f'"{etag_val}"'
 
-        inm = _normalize_inm(request.headers.get("If-None-Match", ""))
-        if inm == etag_val:
-            # ▶ 조기 304: 무거운 SELECT/조인, JSON 가공 전 단계에서 바로 반환
-            resp = Response(status=304)
-            resp.headers["ETag"] = current_etag
-            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
-            resp.headers["X-Dataset-Date"] = rule_date
-            resp.headers["X-Next-Update"] = x_next_update
-            resp.headers["X-Geometry-Included"] = '1' if include_geometry else '0'
-            resp.headers["Vary"] = "Accept-Encoding"
-            return resp
+        # inm = _normalize_inm(request.headers.get("If-None-Match", ""))
+        # if inm == etag_val:
+        #     # ▶ 조기 304: 무거운 SELECT/조인, JSON 가공 전 단계에서 바로 반환
+        #     resp = Response(status=304)
+        #     resp.headers["ETag"] = current_etag
+        #     resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+        #     resp.headers["X-Dataset-Date"] = rule_date
+        #     resp.headers["X-Next-Update"] = x_next_update
+        #     resp.headers["X-Geometry-Included"] = '1' if include_geometry else '0'
+        #     resp.headers["Vary"] = "Accept-Encoding"
+        #     return resp
 
         # --------------------------------------------------------
         # [변경 2] 304가 아니면 그때만 "무거운" 본문 조회 수행
@@ -2457,7 +2458,7 @@ def vttm_result_summary():
         #     - segment_key = tuple(sorted([from_node, to_node]))
         # =========================================================
         district_mapping_local = {
-            1: "교동", 2: "송정", 3: "도심", 4: "경포"
+            1: "교동지구", 2: "송정지구", 3: "중심지구", 4: "경포지구"
         }
 
         def make_hour_label(stat_hour: str) -> str:
@@ -2646,7 +2647,7 @@ def hourly_congested_info_data():
             hours_filter_list = sorted(set(parts))  # 예: ['08','11']
 
         hours_key_for_etag = tuple(int(h) for h in hours_filter_list) if hours_filter_list else None
-        district_mapping = {1: "교동", 2: "송정", 3: "도심", 4: "경포"}
+        district_mapping = {1: "교동지구", 2: "송정지구", 3: "중심지구", 4: "경포지구"}
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -3340,7 +3341,7 @@ def node_approach_result():
         df_info = pd.DataFrame(info_rows, columns=info_cols)
 
         # 숫자화 (DISTRICT 포함)
-        for col in ["CROSS_ID","APPR_ID","DIRECTION","CROSS_TYPE","DISTRICT"]:
+        for col in ["CROSS_ID","APPR_ID","DIRECTION","DISTRICT"]:
             if col in df_info.columns:
                 df_info[col] = pd.to_numeric(df_info[col], errors="coerce")
 
@@ -3435,18 +3436,6 @@ def node_approach_result():
                     signal_cycle_map[key] = val
 
         # -------------------------------------------- 6) 결과 가공
-        def _cross_type_label(ct) -> str | None:
-            """
-            CROSS_TYPE 값(3/4/5)을 한글 라벨로 변환.
-            3 -> '3지 교차로', 4 -> '4지 교차로', 5 -> '5지 교차로'
-            매핑 밖의 값/결측은 None 반환.
-            """
-            mapping = {3: "3지 교차로", 4: "4지 교차로", 5: "5지 교차로"}
-            try:
-                key = int(ct) if pd.notna(ct) else None
-            except Exception:
-                key = None
-            return mapping.get(key)
 
         def _district_label(d) -> str | None:
             """
@@ -3533,7 +3522,7 @@ def node_approach_result():
                 "cross_id": int(cross_id) if pd.notna(cross_id) else None,
                 "district": _district_label(district_val),
                 "sa_no": sa_no,
-                "cross_type": _cross_type_label(node_meta['CROSS_TYPE']),
+                "cross_type": (node_meta['CROSS_TYPE'] if pd.notna(node_meta['CROSS_TYPE']) else None),
                 "int_type": node_meta['INT_TYPE'],
                 "daily_total_vehs": daily_total_val,
                 "total_vehs": all_vehs_total,

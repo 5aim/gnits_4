@@ -199,6 +199,21 @@ class Option2MultiNodeLSTMOutputGenerator:
         
         # Load checkpoint
         checkpoint = torch.load(self.model_path, map_location=self.device, weights_only=False)
+        self.checkpoint = checkpoint
+        
+        self.feature_mean = checkpoint.get('feature_mean', None)
+        self.feature_std = checkpoint.get('feature_std', None)
+        
+        if self.feature_mean is None or self.feature_std is None:
+            # 훈련 기본 셋팅(0.7)과 동일하게 train 범위에서 계산
+            train_end = int(len(self.sequences) * 0.7)
+            X_train = self.sequences[:train_end]
+            self.feature_mean = X_train.mean(axis=(0, 1, 2), dtype=np.float64)
+            self.feature_std  = X_train.std(axis=(0, 1, 2), dtype=np.float64)
+            self.feature_std[self.feature_std < 1e-6] = 1.0  # 분산 0 보호
+        else:
+            self.feature_mean = np.asarray(self.feature_mean, dtype=np.float64)
+            self.feature_std  = np.asarray(self.feature_std,  dtype=np.float64)
         
         # Extract model info
         self.original_scaler = checkpoint['scaler']  # 43차원 원본 스케일러 보관
@@ -294,11 +309,11 @@ class Option2MultiNodeLSTMOutputGenerator:
         test_targets = self.targets[-num_samples:]
         
         # 1. 입력 시퀀스 정규화 (43차원 스케일러 사용)
-        test_sequences_norm = np.zeros_like(test_sequences)
+        test_sequences_norm = np.zeros_like(test_sequences, dtype=np.float64)
         for i in range(len(test_sequences)):
-            seq_flat = test_sequences[i].reshape(-1, test_sequences[i].shape[-1])
-            seq_normalized = self.original_scaler.transform(seq_flat)
-            test_sequences_norm[i] = seq_normalized.reshape(test_sequences[i].shape)
+            seq = test_sequences[i].astype(np.float64)   # (..., num_features)
+            seq_normalized = (seq - self.feature_mean) / self.feature_std
+            test_sequences_norm[i] = seq_normalized
         
         # 2. 모델 예측 (정규화된 24차원 출력)
         X_test = torch.FloatTensor(test_sequences_norm).to(self.device)
@@ -360,11 +375,11 @@ class Option2MultiNodeLSTMOutputGenerator:
         test_sequences = self.sequences[-base_samples:]
         
         # Normalize sequences
-        test_sequences_norm = np.zeros_like(test_sequences)
+        test_sequences_norm = np.zeros_like(test_sequences, dtype=np.float64)
         for i in range(len(test_sequences)):
-            seq_flat = test_sequences[i].reshape(-1, test_sequences[i].shape[-1])
-            seq_normalized = self.original_scaler.transform(seq_flat)
-            test_sequences_norm[i] = seq_normalized.reshape(test_sequences[i].shape)
+            seq = test_sequences[i].astype(np.float64)
+            seq_normalized = (seq - self.feature_mean) / self.feature_std
+            test_sequences_norm[i] = seq_normalized
         
         X_test = torch.FloatTensor(test_sequences_norm).to(self.device)
         

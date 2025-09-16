@@ -4,7 +4,7 @@
     "data": [
         {
             "hour_label": "7월 1일 08시 ~ 09시",
-            "district": "교동",
+            "district": "교동지구",
             "items": [
                 {
                     "from_node": "미디어촌 삼거리",
@@ -286,7 +286,7 @@
         },
         {
             "hour_label": "7월 1일 08시 ~ 09시",
-            "district": "경포",
+            "district": "경포지구",
             "items": [
                 {
                     "from_node": "법원 입구 삼거리",
@@ -453,7 +453,7 @@
         },
         {
             "hour_label": "7월 1일 08시 ~ 09시",
-            "district": "도심",
+            "district": "중심지구",
             "items": [
                 {
                     "from_node": "월드컵대교남단 교차로",
@@ -1051,7 +1051,7 @@
         },
         {
             "hour_label": "7월 1일 08시 ~ 09시",
-            "district": "송정",
+            "district": "송정지구",
             "items": [
                 {
                     "from_node": "공항대교 남단 교차로",
@@ -1287,7 +1287,7 @@
         },
         {
             "hour_label": "7월 1일 11시 ~ 12시",
-            "district": "교동",
+            "district": "교동지구",
             "items": [
                 {
                     "from_node": "미디어촌 삼거리",
@@ -1569,7 +1569,7 @@
         },
         {
             "hour_label": "7월 1일 11시 ~ 12시",
-            "district": "경포",
+            "district": "경포지구",
             "items": [
                 {
                     "from_node": "법원 입구 삼거리",
@@ -1736,7 +1736,7 @@
         },
         {
             "hour_label": "7월 1일 11시 ~ 12시",
-            "district": "도심",
+            "district": "중심지구",
             "items": [
                 {
                     "from_node": "월드컵대교남단 교차로",
@@ -2334,7 +2334,7 @@
         },
         {
             "hour_label": "7월 1일 11시 ~ 12시",
-            "district": "송정",
+            "district": "송정지구",
             "items": [
                 {
                     "from_node": "공항대교 남단 교차로",
@@ -2570,7 +2570,7 @@
         },
         {
             "hour_label": "7월 1일 14시 ~ 15시",
-            "district": "교동",
+            "district": "교동지구",
             "items": [
                 {
                     "from_node": "미디어촌 삼거리",
@@ -2852,7 +2852,7 @@
         },
         {
             "hour_label": "7월 1일 14시 ~ 15시",
-            "district": "경포",
+            "district": "경포지구",
             "items": [
                 {
                     "from_node": "법원 입구 삼거리",
@@ -3019,7 +3019,7 @@
         },
         {
             "hour_label": "7월 1일 14시 ~ 15시",
-            "district": "도심",
+            "district": "중심지구",
             "items": [
                 {
                     "from_node": "월드컵대교남단 교차로",
@@ -3617,7 +3617,7 @@
         },
         {
             "hour_label": "7월 1일 14시 ~ 15시",
-            "district": "송정",
+            "district": "송정지구",
             "items": [
                 {
                     "from_node": "공항대교 남단 교차로",
@@ -3853,7 +3853,7 @@
         },
         {
             "hour_label": "7월 1일 17시 ~ 18시",
-            "district": "교동",
+            "district": "교동지구",
             "items": [
                 {
                     "from_node": "미디어촌 삼거리",
@@ -4135,7 +4135,7 @@
         },
         {
             "hour_label": "7월 1일 17시 ~ 18시",
-            "district": "경포",
+            "district": "경포지구",
             "items": [
                 {
                     "from_node": "법원 입구 삼거리",
@@ -4302,7 +4302,7 @@
         },
         {
             "hour_label": "7월 1일 17시 ~ 18시",
-            "district": "도심",
+            "district": "중심지구",
             "items": [
                 {
                     "from_node": "월드컵대교남단 교차로",
@@ -4900,7 +4900,7 @@
         },
         {
             "hour_label": "7월 1일 17시 ~ 18시",
-            "district": "송정",
+            "district": "송정지구",
             "items": [
                 {
                     "from_node": "공항대교 남단 교차로",
